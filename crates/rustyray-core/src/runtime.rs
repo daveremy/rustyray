@@ -1,0 +1,89 @@
+//! Global runtime management for RustyRay
+
+use crate::{ActorSystem, TaskSystem, Result, RustyRayError};
+use std::sync::Arc;
+use once_cell::sync::OnceCell;
+
+static RUNTIME: OnceCell<Runtime> = OnceCell::new();
+
+/// The global RustyRay runtime
+pub struct Runtime {
+    actor_system: Arc<ActorSystem>,
+    task_system: Arc<TaskSystem>,
+}
+
+/// Initialize the global runtime
+pub fn init() -> Result<()> {
+    Runtime::init_internal()
+}
+
+/// Get the global runtime
+pub fn global() -> Result<&'static Runtime> {
+    Runtime::global()
+}
+
+/// Shutdown the global runtime
+pub fn shutdown() -> Result<()> {
+    Runtime::shutdown_internal()
+}
+
+impl Runtime {
+    /// Initialize the global runtime
+    fn init_internal() -> Result<()> {
+        let actor_system = Arc::new(ActorSystem::new());
+        let task_system = Arc::new(TaskSystem::new(actor_system.clone()));
+        
+        // Register all remote functions
+        init_remote_functions(&task_system);
+        
+        let runtime = Runtime {
+            actor_system,
+            task_system,
+        };
+        
+        RUNTIME.set(runtime).map_err(|_| {
+            RustyRayError::Internal("Runtime already initialized".to_string())
+        })?;
+        
+        Ok(())
+    }
+    
+    /// Get the global runtime
+    pub fn global() -> Result<&'static Runtime> {
+        RUNTIME.get().ok_or_else(|| {
+            RustyRayError::Internal("Runtime not initialized".to_string())
+        })
+    }
+    
+    /// Shutdown the global runtime
+    fn shutdown_internal() -> Result<()> {
+        // In the future, this will properly shutdown all systems
+        Ok(())
+    }
+    
+    /// Get the task system
+    pub fn task_system(&self) -> &Arc<TaskSystem> {
+        &self.task_system
+    }
+    
+    /// Get the actor system
+    pub fn actor_system(&self) -> &Arc<ActorSystem> {
+        &self.actor_system
+    }
+}
+
+/// Registration for remote functions using linkme
+pub struct RemoteFunctionRegistration {
+    pub name: &'static str,
+    pub register: fn(&TaskSystem),
+}
+
+#[linkme::distributed_slice]
+pub static REMOTE_FUNCTIONS: [RemoteFunctionRegistration];
+
+/// Initialize all registered remote functions
+pub fn init_remote_functions(system: &TaskSystem) {
+    for registration in REMOTE_FUNCTIONS {
+        (registration.register)(system);
+    }
+}

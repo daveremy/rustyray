@@ -99,6 +99,7 @@ impl TaskTracker {
     }
 
     /// Cancel all tasks
+    #[allow(dead_code)]
     pub async fn cancel_all(&self) {
         let tasks = self.tasks.read().await;
         for (handle, _) in tasks.values() {
@@ -140,6 +141,7 @@ impl TaskTracker {
 /// Extension trait for futures to add timeout and cancellation support
 pub trait TaskExt: Sized {
     /// Add a timeout to this future
+    #[allow(dead_code)]
     async fn with_timeout(self, duration: Duration) -> Result<Self::Output>
     where
         Self: std::future::Future,

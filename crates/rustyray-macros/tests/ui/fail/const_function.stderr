@@ -1,0 +1,5 @@
+error: #[remote] functions cannot be const
+ --> tests/ui/fail/const_function.rs:4:1
+  |
+4 | const fn invalid_const() -> i32 {
+  | ^^^^^

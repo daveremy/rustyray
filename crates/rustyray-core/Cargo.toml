@@ -1,0 +1,29 @@
+[package]
+name = "rustyray-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+tokio.workspace = true
+async-trait.workspace = true
+dashmap.workspace = true
+serde = { workspace = true, optional = true }
+bincode.workspace = true
+once_cell.workspace = true
+bytes.workspace = true
+thiserror.workspace = true
+linkme.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+proptest.workspace = true
+pretty_assertions.workspace = true
+anyhow.workspace = true
+rustyray-macros.workspace = true
+
+[features]
+default = ["serde"]
+serde = ["dep:serde", "dashmap/serde"]

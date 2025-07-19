@@ -1,9 +1,17 @@
-[package]
-name = "rustyray"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+members = ["crates/*"]
+resolver = "2"
 
-[dependencies]
+[workspace.package]
+version = "0.3.0-dev"
+edition = "2021"
+authors = ["RustyRay Contributors"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/daveremy/rustyray"
+rust-version = "1.70"
+
+[workspace.dependencies]
+# Core dependencies
 tokio = { version = "1.35", features = ["full"] }
 async-trait = "0.1"
 dashmap = "6.1"
@@ -11,3 +19,31 @@ serde = { version = "1.0", features = ["derive"] }
 bincode = { version = "2.0", features = ["serde"] }
 once_cell = "1.19"
 bytes = "1.9"
+thiserror = "2.0"
+anyhow = "1.0"
+
+# Macro dependencies
+syn = { version = "2.0", features = ["full", "extra-traits"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+linkme = "0.3"
+darling = "0.20"
+
+# Internal dependencies
+rustyray-core = { version = "0.3.0-dev", path = "crates/rustyray-core" }
+rustyray-macros = { version = "0.3.0-dev", path = "crates/rustyray-macros" }
+
+# Dev dependencies
+trybuild = "1.0"
+criterion = "0.5"
+proptest = "1.0"
+pretty_assertions = "1.0"
+insta = "1.0"
+
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

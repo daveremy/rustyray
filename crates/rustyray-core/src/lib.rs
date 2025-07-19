@@ -69,12 +69,24 @@ pub mod error;
 /// - Integrate seamlessly with the actor system
 pub mod task;
 
+/// Runtime management for global state and initialization.
+pub mod runtime;
+
+/// Prelude for common imports
+pub mod prelude;
+
 // Test modules
 mod tests;
 
 // Test utilities
 #[cfg(test)]
 pub mod test_utils;
+
+// Re-exports for convenience
+pub use error::{Result, RustyRayError};
+pub use actor::{Actor, ActorRef, ActorSystem};
+pub use task::{ObjectRef, TaskBuilder, TaskSystem};
+pub use runtime::{REMOTE_FUNCTIONS, RemoteFunctionRegistration};
 
 // Future modules (commented out until we need them):
 // pub mod object;    // Object store for data sharing
