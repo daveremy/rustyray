@@ -38,6 +38,52 @@ pub fn remote_impl(args: TokenStream, input: TokenStream) -> TokenStream {
     TokenStream::from(result)
 }
 
+fn is_object_ref_type(ty: &syn::Type) -> bool {
+    match ty {
+        syn::Type::Path(type_path) => {
+            if let Some(segment) = type_path.path.segments.last() {
+                segment.ident == "ObjectRef"
+            } else {
+                false
+            }
+        }
+        syn::Type::Reference(type_ref) => is_object_ref_type(&type_ref.elem),
+        _ => false,
+    }
+}
+
+fn is_result_type(ty: &syn::Type) -> bool {
+    match ty {
+        syn::Type::Path(type_path) => {
+            if let Some(segment) = type_path.path.segments.last() {
+                segment.ident == "Result"
+            } else {
+                false
+            }
+        }
+        _ => false,
+    }
+}
+
+fn extract_result_ok_type(ty: &syn::Type) -> proc_macro2::TokenStream {
+    match ty {
+        syn::Type::Path(type_path) => {
+            if let Some(segment) = type_path.path.segments.last() {
+                if segment.ident == "Result" {
+                    if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
+                        if let Some(syn::GenericArgument::Type(ok_type)) = args.args.first() {
+                            return quote! { #ok_type };
+                        }
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+    // Fallback - shouldn't happen if is_result_type returned true
+    quote! { () }
+}
+
 fn validate_remote_function(func: &ItemFn) -> syn::Result<()> {
     // Check for self parameter
     if func.sig.inputs.iter().any(|arg| matches!(arg, syn::FnArg::Receiver(_))) {
@@ -119,28 +165,66 @@ fn generate_remote_module(func: &ItemFn, args: &RemoteArgs) -> proc_macro2::Toke
     
     let param_types: Vec<_> = params.iter().map(|param| &*param.ty).collect();
     
-    // Extract return type
-    let return_type = match fn_output {
-        ReturnType::Default => quote! { () },
-        ReturnType::Type(_, ty) => quote! { #ty },
+    // Generate the appropriate arg calls based on parameter types
+    let add_arg_calls: Vec<_> = params
+        .iter()
+        .zip(param_names.iter())
+        .map(|(param, name)| {
+            if is_object_ref_type(&param.ty) {
+                quote! { .arg_ref(&#name) }
+            } else {
+                quote! { .arg(#name) }
+            }
+        })
+        .collect();
+    
+    // Extract return type and check if it's already a Result
+    let (return_type, object_ref_type, returns_result) = match fn_output {
+        ReturnType::Default => (quote! { () }, quote! { () }, false),
+        ReturnType::Type(_, ty) => {
+            let is_result = is_result_type(ty);
+            if is_result {
+                // Extract T from Result<T, E>
+                let inner_type = extract_result_ok_type(ty);
+                (quote! { #ty }, inner_type, true)
+            } else {
+                (quote! { #ty }, quote! { #ty }, false)
+            }
+        }
     };
     
     // Generate the function execution for registration
     // The task_function macro expects a Result, so we need to wrap non-Result returns
-    let function_execution = if is_async {
-        quote! {
-            |#(#param_names: #param_types),*| async move {
-                let result: #return_type = #fn_body;
-                Ok::<#return_type, rustyray_core::RustyRayError>(result)
+    let function_execution = if returns_result {
+        // Function already returns Result, just call it directly
+        if is_async {
+            quote! {
+                |#(#param_names: #param_types),*| async move #fn_body
+            }
+        } else {
+            quote! {
+                |#(#param_names: #param_types),*| async move {
+                    let sync_fn = move || #fn_body;
+                    sync_fn()
+                }
             }
         }
     } else {
-        // For sync functions, we need to wrap in an async block
-        quote! {
-            |#(#param_names: #param_types),*| async move {
-                let sync_fn = move || #fn_body;
-                let result: #return_type = sync_fn();
-                Ok::<#return_type, rustyray_core::RustyRayError>(result)
+        // Function doesn't return Result, wrap it
+        if is_async {
+            quote! {
+                |#(#param_names: #param_types),*| async move {
+                    let result: #return_type = #fn_body;
+                    Ok::<#return_type, rustyray_core::RustyRayError>(result)
+                }
+            }
+        } else {
+            quote! {
+                |#(#param_names: #param_types),*| async move {
+                    let sync_fn = move || #fn_body;
+                    let result: #return_type = sync_fn();
+                    Ok::<#return_type, rustyray_core::RustyRayError>(result)
+                }
             }
         }
     };
@@ -169,16 +253,16 @@ fn generate_remote_module(func: &ItemFn, args: &RemoteArgs) -> proc_macro2::Toke
             use rustyray_core::runtime;
             
             /// Execute this function remotely
-            pub fn remote(#fn_inputs) -> impl std::future::Future<Output = Result<ObjectRef<#return_type>>> {
+            pub fn remote(#fn_inputs) -> impl std::future::Future<Output = Result<ObjectRef<#object_ref_type>>> {
                 async move {
                     let task_system = runtime::global()?.task_system();
                     
                     TaskBuilder::new(stringify!(#fn_name))
                         #(
-                            .arg(#param_names)
+                            #add_arg_calls
                         )*
                         #resource_config
-                        .submit::<#return_type>(&task_system)
+                        .submit::<#object_ref_type>(&task_system)
                         .await
                 }
             }

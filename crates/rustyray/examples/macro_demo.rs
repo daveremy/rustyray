@@ -26,6 +26,12 @@ async fn compute_heavy(n: u64) -> u64 {
     result
 }
 
+#[rustyray::remote]
+fn multiply(x: i32, y: i32) -> i32 {
+    println!("Computing {} * {} on a remote task (sync)", x, y);
+    x * y
+}
+
 #[rustyray::main]
 async fn main() -> Result<()> {
     println!("=== RustyRay Macro Demo ===\n");
@@ -44,6 +50,11 @@ async fn main() -> Result<()> {
     println!("Calling compute_heavy(1000) with 2 CPUs...");
     let computation = compute_heavy_remote::remote(1000).await?;
     println!("Result: {}\n", computation.get().await?);
+    
+    // Sync function
+    println!("Calling multiply(7, 6) (sync function)...");
+    let product = multiply_remote::remote(7, 6).await?;
+    println!("Result: {}\n", product.get().await?);
     
     println!("All tasks completed successfully!");
     Ok(())
