@@ -5,7 +5,7 @@ use rustyray::task::{TaskSystem, TaskBuilder};
 use rustyray::task_function;
 use rustyray::error::Result;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 #[tokio::main]
 async fn main() -> Result<()> {
