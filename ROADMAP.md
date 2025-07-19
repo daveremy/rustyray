@@ -119,15 +119,17 @@ Add Ray's task concept - stateless function execution with dependencies.
 
 Implement procedural macros to dramatically improve the developer experience. Goal: 70% reduction in boilerplate code.
 
-### 3.1 Function Macros (Week 2)
-- [ ] #[rustyray::remote] for automatic function registration
-- [ ] Support for both async and sync functions
-- [ ] Automatic serialization/deserialization handling
-- [ ] Type-safe function signatures with compile-time validation
-- [ ] ObjectRef<T> parameter support for task chaining
-- [ ] Resource requirements (num_cpus, num_gpus)
+### 3.1 Function Macros (Week 1-2) ✅ Week 1 Complete!
+- [x] #[rustyray::remote] for automatic function registration
+- [x] Support for both async and sync functions
+- [x] Automatic serialization/deserialization handling
+- [x] Type-safe function signatures with compile-time validation
+- [x] ObjectRef<T> parameter support for task chaining
+- [x] Resource requirements (num_cpus, num_gpus)
+- [x] Result<T> return type detection and handling
+- [x] Compile-time registration with linkme
 
-### 3.2 Actor Macros (Week 3)
+### 3.2 Actor Macros (Week 2-3) 🚀 Next Focus
 - [ ] #[rustyray::actor] for actor structs with resource requirements
 - [ ] #[rustyray::actor_methods] for typed method handles
 - [ ] Eliminate Box<dyn Any> boilerplate completely
