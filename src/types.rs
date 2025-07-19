@@ -6,6 +6,13 @@
 use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+/// Counter for generating unique actor IDs.
+/// In a distributed system, this would need to be more sophisticated.
+static ACTOR_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
+
+/// Counter for generating unique task IDs.
+static TASK_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
+
 /// Unique identifier for an actor.
 /// 
 /// In Ray, actor IDs are unique across the cluster. For now, we'll use
@@ -17,13 +24,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 pub struct ActorId(u64);
 
 impl ActorId {
-    /// Counter for generating unique actor IDs.
-    /// In a distributed system, this would need to be more sophisticated.
-    static COUNTER: AtomicU64 = AtomicU64::new(1);
-    
     /// Generate a new unique actor ID.
     pub fn new() -> Self {
-        let id = Self::COUNTER.fetch_add(1, Ordering::SeqCst);
+        let id = ACTOR_ID_COUNTER.fetch_add(1, Ordering::SeqCst);
         ActorId(id)
     }
     
@@ -47,11 +50,9 @@ impl fmt::Display for ActorId {
 pub struct TaskId(u64);
 
 impl TaskId {
-    static COUNTER: AtomicU64 = AtomicU64::new(1);
-    
     /// Generate a new unique task ID.
     pub fn new() -> Self {
-        let id = Self::COUNTER.fetch_add(1, Ordering::SeqCst);
+        let id = TASK_ID_COUNTER.fetch_add(1, Ordering::SeqCst);
         TaskId(id)
     }
 }

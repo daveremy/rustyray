@@ -27,6 +27,26 @@
 /// - Process messages sequentially (by default)
 /// - Have unique IDs for addressing
 /// - Support method calls via handles
+/// 
+/// # Example
+/// 
+/// ```ignore
+/// use rustyray::actor::{Actor, ActorSystem};
+/// use async_trait::async_trait;
+/// use std::any::Any;
+/// 
+/// struct Counter {
+///     count: i32,
+/// }
+/// 
+/// #[async_trait]
+/// impl Actor for Counter {
+///     async fn handle(&mut self, msg: Box<dyn Any + Send>) -> Result<Box<dyn Any + Send>> {
+///         // Handle messages here
+///         Ok(Box::new(()))
+///     }
+/// }
+/// ```
 pub mod actor;
 
 /// Core types used throughout RustyRay.
