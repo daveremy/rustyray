@@ -6,7 +6,7 @@
 use std::fmt;
 
 /// The main error type for RustyRay operations.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum RustyRayError {
     /// Actor with the given ID was not found.
     ActorNotFound(crate::types::ActorId),

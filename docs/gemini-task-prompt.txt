@@ -1,0 +1,21 @@
+I'm implementing RustyRay, a Rust version of Ray Core. I've completed Phase 1 (local actor system with tokio-based async message passing) and am planning Phase 2 (task execution system).
+
+Please analyze Ray's task system architecture and answer:
+
+1. **Core Concepts**: What exactly is a Ray task vs an actor method call? How are tasks represented internally?
+
+2. **Task Lifecycle**: How are tasks created, submitted, executed, and how are results returned?
+
+3. **Dependencies**: How does Ray track and resolve task dependencies? What's the role of ObjectRefs?
+
+4. **Task vs Actor Integration**: How do tasks interact with actors? Can tasks create actors and vice versa?
+
+5. **Key Design Patterns**: What patterns does Ray use for async task execution? How does the worker pool work?
+
+6. **Rust Implementation Advice**: 
+   - Should we use tokio tasks or a custom worker pool?
+   - How should we handle type erasure for generic task functions?
+   - What's the best way to implement ObjectRefs in Rust?
+   - Which features should we implement first vs defer?
+
+Please provide concrete insights to guide our Rust implementation, focusing on what's essential for a minimal but extensible task system.

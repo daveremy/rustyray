@@ -20,7 +20,7 @@ static TASK_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 /// - Globally unique (across nodes)
 /// - Include node/process information
 /// - Support serialization for network transfer
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct ActorId(u64);
 
 impl ActorId {
@@ -46,7 +46,7 @@ impl fmt::Display for ActorId {
 /// 
 /// Tasks in Ray are stateless function executions. Each task has a unique ID
 /// for tracking execution, dependencies, and results.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct TaskId(u64);
 
 impl TaskId {
@@ -55,14 +55,25 @@ impl TaskId {
         let id = TASK_ID_COUNTER.fetch_add(1, Ordering::SeqCst);
         TaskId(id)
     }
+    
+    /// Get the inner ID value.
+    pub fn as_u64(&self) -> u64 {
+        self.0
+    }
 }
 
-/// Unique identifier for an object in the distributed object store.
-/// 
-/// Objects in Ray are immutable data that can be shared across the cluster.
-/// They're stored in the Plasma object store for efficient zero-copy access.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ObjectId(u64);
+impl fmt::Display for TaskId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Task({})", self.0)
+    }
+}
+
+impl From<crate::task::ObjectId> for TaskId {
+    fn from(object_id: crate::task::ObjectId) -> Self {
+        // Use the same underlying ID value
+        TaskId(object_id.as_u64())
+    }
+}
 
 /// Result type for actor operations.
 /// 

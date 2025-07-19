@@ -60,8 +60,23 @@ pub mod types;
 /// Error types for RustyRay operations.
 pub mod error;
 
+/// Task execution system for stateless function execution.
+/// 
+/// This module implements Ray's task concept:
+/// - Stateless functions that can run anywhere
+/// - Return ObjectRefs (futures) immediately
+/// - Support dependencies through ObjectRef arguments
+/// - Integrate seamlessly with the actor system
+pub mod task;
+
+// Test modules
+mod tests;
+
+// Test utilities
+#[cfg(test)]
+pub mod test_utils;
+
 // Future modules (commented out until we need them):
-// pub mod task;      // Task execution system
 // pub mod object;    // Object store for data sharing
 // pub mod gcs;       // Global Control Store for cluster management
 // pub mod rpc;       // RPC communication layer

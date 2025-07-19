@@ -34,8 +34,9 @@ use crate::types::ActorId;
 use std::any::Any;
 use std::sync::Arc;
 use async_trait::async_trait;
-use tokio::sync::{mpsc, oneshot, Mutex};
-use std::collections::HashMap;
+use tokio::sync::{mpsc, oneshot};
+use dashmap::DashMap;
+use std::sync::atomic::{AtomicU8, Ordering};
 
 /// The base trait that all actors must implement.
 /// 
@@ -90,7 +91,7 @@ enum ActorMessage {
 /// 
 /// This is similar to Ray's ActorHandle. It provides location transparency -
 /// the actor could be local or remote (in future versions).
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ActorRef {
     /// The unique ID of this actor
     id: ActorId,
@@ -147,6 +148,26 @@ struct ActorHandle {
     shutdown_complete: oneshot::Receiver<()>,
 }
 
+/// Represents the current state of the actor system
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+enum ShutdownState {
+    Running = 0,
+    ShuttingDown = 1,
+    Shutdown = 2,
+}
+
+impl From<u8> for ShutdownState {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => ShutdownState::Running,
+            1 => ShutdownState::ShuttingDown,
+            2 => ShutdownState::Shutdown,
+            _ => ShutdownState::Shutdown,
+        }
+    }
+}
+
 /// The actor system manages the lifecycle of all actors.
 /// 
 /// This is the main entry point for creating and managing actors. It handles:
@@ -156,19 +177,27 @@ struct ActorHandle {
 /// - Graceful shutdown
 pub struct ActorSystem {
     /// Registry of all active actors with shutdown tracking
-    actors: Arc<Mutex<HashMap<ActorId, ActorHandle>>>,
+    actors: Arc<DashMap<ActorId, ActorHandle>>,
+    /// Shutdown state
+    shutdown_state: Arc<AtomicU8>,
 }
 
 impl ActorSystem {
     /// Create a new actor system.
     pub fn new() -> Self {
         ActorSystem {
-            actors: Arc::new(Mutex::new(HashMap::new())),
+            actors: Arc::new(DashMap::new()),
+            shutdown_state: Arc::new(AtomicU8::new(ShutdownState::Running as u8)),
         }
     }
     
     /// Create a new actor and return a reference to it.
     pub async fn create_actor<A: Actor>(&self, mut actor: A) -> Result<ActorRef> {
+        // Check if shutting down
+        let state = ShutdownState::from(self.shutdown_state.load(Ordering::Acquire));
+        if state != ShutdownState::Running {
+            return Err(RustyRayError::Internal("Actor system is shutting down".to_string()));
+        }
         let id = ActorId::new();
         let (tx, mut rx) = mpsc::channel::<ActorMessage>(100); // Buffer size of 100
         let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
@@ -180,15 +209,13 @@ impl ActorSystem {
         };
         
         // Register the actor with shutdown tracking
-        {
-            let mut actors = self.actors.lock().await;
-            actors.insert(id, ActorHandle {
-                sender: tx,
-                shutdown_complete: shutdown_rx,
-            });
-        }
+        self.actors.insert(id, ActorHandle {
+            sender: tx,
+            shutdown_complete: shutdown_rx,
+        });
         
         // Spawn the actor's message processing loop
+        let actors_registry = self.actors.clone();
         tokio::spawn(async move {
             // Call on_start
             if let Err(e) = actor.on_start().await {
@@ -220,6 +247,9 @@ impl ActorSystem {
                 eprintln!("Actor {} failed to stop cleanly: {:?}", id, e);
             }
             
+            // Remove from registry
+            actors_registry.remove(&id);
+            
             // Signal shutdown is complete
             let _ = shutdown_tx.send(());
         });
@@ -234,30 +264,61 @@ impl ActorSystem {
     /// 2. Wait for all pending messages to be processed
     /// 3. Call `on_stop` for all actors
     /// 4. Clean up resources
-    pub async fn shutdown(self) -> Result<()> {
-        // Get all actors and send shutdown messages
-        let mut actors = self.actors.lock().await;
-        let mut shutdown_receivers = Vec::new();
+    /// 
+    /// This method is idempotent - it can be called multiple times safely.
+    pub async fn shutdown(&self) -> Result<()> {
+        // Try to transition from Running to ShuttingDown
+        let prev_state = self.shutdown_state.compare_exchange(
+            ShutdownState::Running as u8,
+            ShutdownState::ShuttingDown as u8,
+            Ordering::AcqRel,
+            Ordering::Acquire
+        );
         
-        // Send shutdown message to all actors
-        for (_, handle) in actors.iter() {
-            let _ = handle.sender.send(ActorMessage::Shutdown).await;
-        }
-        
-        // Collect shutdown receivers
-        for (id, handle) in actors.drain() {
-            shutdown_receivers.push((id, handle.shutdown_complete));
-        }
-        
-        // Wait for all actors to complete shutdown
-        for (id, receiver) in shutdown_receivers {
-            match receiver.await {
-                Ok(()) => {},
-                Err(_) => eprintln!("Actor {} shutdown receiver dropped unexpectedly", id),
+        match ShutdownState::from(prev_state.unwrap_or_else(|e| e)) {
+            ShutdownState::Running => {
+                // We successfully initiated shutdown
+                let mut shutdown_receivers = Vec::new();
+                
+                // Send shutdown message to all actors
+                for entry in self.actors.iter() {
+                    let _ = entry.value().sender.send(ActorMessage::Shutdown).await;
+                }
+                
+                // Collect shutdown receivers by removing all entries
+                // DashMap doesn't have drain(), so we collect keys then remove
+                let keys: Vec<_> = self.actors.iter().map(|entry| *entry.key()).collect();
+                for id in keys {
+                    if let Some((_, handle)) = self.actors.remove(&id) {
+                        shutdown_receivers.push((id, handle.shutdown_complete));
+                    }
+                }
+                
+                // Wait for all actors to complete shutdown
+                for (id, receiver) in shutdown_receivers {
+                    match receiver.await {
+                        Ok(()) => {},
+                        Err(_) => eprintln!("Actor {} shutdown receiver dropped unexpectedly", id),
+                    }
+                }
+                
+                // Mark as fully shutdown
+                self.shutdown_state.store(ShutdownState::Shutdown as u8, Ordering::Release);
+                Ok(())
+            }
+            ShutdownState::ShuttingDown => {
+                // Another thread is already shutting down
+                // Wait for it to complete
+                while ShutdownState::from(self.shutdown_state.load(Ordering::Acquire)) == ShutdownState::ShuttingDown {
+                    tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+                }
+                Ok(())
+            }
+            ShutdownState::Shutdown => {
+                // Already shutdown
+                Ok(())
             }
         }
-        
-        Ok(())
     }
 }
 
@@ -267,6 +328,7 @@ pub use self::ActorRef as Handle;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::sync::Mutex;
     
     #[tokio::test]
     async fn test_actor_id_generation() {

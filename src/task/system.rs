@@ -1,0 +1,406 @@
+//! High-level task system API.
+//! 
+//! This module provides the main interface for submitting and managing tasks.
+//! It integrates with the actor system to provide unified execution.
+
+use crate::actor::ActorSystem;
+use crate::error::{Result, RustyRayError};
+use crate::task::{TaskSpec, TaskManager, ObjectRef, TaskArg, FunctionRegistry, FunctionId};
+#[cfg(test)]
+use crate::task::TaskManagerConfig;
+use std::sync::Arc;
+use serde::{Serialize, de::DeserializeOwned};
+use std::sync::atomic::{AtomicU8, Ordering};
+use std::time::Duration;
+
+/// Represents the current state of the task system
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+enum ShutdownState {
+    Running = 0,
+    ShuttingDown = 1,
+    Shutdown = 2,
+}
+
+impl From<u8> for ShutdownState {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => ShutdownState::Running,
+            1 => ShutdownState::ShuttingDown,
+            2 => ShutdownState::Shutdown,
+            _ => ShutdownState::Shutdown,
+        }
+    }
+}
+
+/// The main task system that coordinates task execution.
+/// 
+/// This integrates with the actor system to provide a unified
+/// execution environment for both tasks and actors.
+pub struct TaskSystem {
+    /// Function registry for task functions
+    registry: Arc<FunctionRegistry>,
+    
+    /// Task manager for execution
+    task_manager: Arc<TaskManager>,
+    
+    /// Reference to the actor system for integration
+    #[allow(dead_code)]
+    actor_system: Arc<ActorSystem>,
+    
+    /// Shutdown state
+    shutdown_state: Arc<AtomicU8>,
+}
+
+impl TaskSystem {
+    /// Create a new task system
+    pub fn new(actor_system: Arc<ActorSystem>) -> Self {
+        let registry = Arc::new(FunctionRegistry::new());
+        let task_manager = Arc::new(TaskManager::new(registry.clone()));
+        
+        TaskSystem {
+            registry,
+            task_manager,
+            actor_system,
+            shutdown_state: Arc::new(AtomicU8::new(ShutdownState::Running as u8)),
+        }
+    }
+    
+    /// Create a new task system with custom timeout for tasks
+    pub fn with_timeout(actor_system: Arc<ActorSystem>, timeout: Duration) -> Self {
+        let registry = Arc::new(FunctionRegistry::new());
+        let task_manager = Arc::new(TaskManager::with_timeout(registry.clone(), timeout));
+        
+        TaskSystem {
+            registry,
+            task_manager,
+            actor_system,
+            shutdown_state: Arc::new(AtomicU8::new(ShutdownState::Running as u8)),
+        }
+    }
+    
+    /// Create a new task system for tests with aggressive timeouts
+    #[cfg(test)]
+    pub fn for_tests(actor_system: Arc<ActorSystem>) -> Self {
+        let registry = Arc::new(FunctionRegistry::new());
+        let task_manager = Arc::new(TaskManager::with_config(registry.clone(), TaskManagerConfig::for_tests()));
+        
+        TaskSystem {
+            registry,
+            task_manager,
+            actor_system,
+            shutdown_state: Arc::new(AtomicU8::new(ShutdownState::Running as u8)),
+        }
+    }
+    
+    /// Submit a task for execution and return an ObjectRef.
+    /// 
+    /// This is the main entry point for task execution. The task is
+    /// queued for execution and an ObjectRef is returned immediately.
+    /// The actual execution happens asynchronously.
+    pub async fn submit<T>(&self, mut spec: TaskSpec) -> Result<ObjectRef<T>>
+    where
+        T: DeserializeOwned + Send + 'static,
+    {
+        // Check if shutting down
+        let state = ShutdownState::from(self.shutdown_state.load(Ordering::Acquire));
+        if state != ShutdownState::Running {
+            return Err(RustyRayError::Internal("Task system is shutting down".to_string()));
+        }
+        
+        // Create ObjectRef with channel
+        let (object_ref, result_tx) = ObjectRef::new();
+        
+        // Store the mapping from task_id to object_id
+        // This is needed so we can notify the right object when the task completes
+        let object_id = object_ref.id();
+        spec.task_id = crate::types::TaskId::from(object_id);
+        
+        // Queue task for execution
+        self.task_manager.queue_task(spec, result_tx).await?;
+        
+        Ok(object_ref)
+    }
+    
+    /// Submit a task with specific arguments.
+    /// 
+    /// This is a convenience method that creates a TaskSpec and submits it.
+    pub async fn submit_task<T>(
+        &self,
+        function_id: crate::task::FunctionId,
+        args: Vec<TaskArg>,
+    ) -> Result<ObjectRef<T>>
+    where
+        T: DeserializeOwned + Send + 'static,
+    {
+        let spec = TaskSpec::normal(function_id, args);
+        self.submit(spec).await
+    }
+    
+    /// Put an object into the object store.
+    /// 
+    /// This is used to make data available to tasks as dependencies.
+    /// Returns an ObjectRef that can be passed to other tasks.
+    pub async fn put<T>(&self, value: T) -> Result<ObjectRef<T>>
+    where
+        T: Serialize + DeserializeOwned + Send + 'static,
+    {
+        // Serialize the value
+        let bytes = crate::task::serde_utils::serialize(&value)
+            .map_err(|e| RustyRayError::Internal(
+                format!("Failed to serialize object: {}", e)
+            ))?;
+        
+        // Create ObjectRef
+        let (object_ref, result_tx) = ObjectRef::new();
+        let id = object_ref.id();
+        
+        // Store in object store (via task manager for now)
+        self.task_manager.notify_object_ready(id, bytes.clone()).await?;
+        
+        // Send to result channel too so ObjectRef::get() works
+        let _ = result_tx.send(Ok(bytes));
+        
+        Ok(object_ref)
+    }
+    
+    /// Register a function with the task system.
+    /// 
+    /// Functions must be registered before they can be called as tasks.
+    pub fn register_function<F>(&self, id: impl Into<FunctionId>, function: F) -> Result<()>
+    where
+        F: Fn(Vec<Vec<u8>>) -> crate::task::BoxFuture<'static, Result<Vec<u8>>> + Send + Sync + 'static,
+    {
+        self.registry.register(id.into(), function)
+    }
+    
+    /// Shutdown the task system gracefully.
+    /// 
+    /// This will:
+    /// 1. Stop accepting new tasks
+    /// 2. Wait for all pending tasks to complete
+    /// 3. Clean up resources
+    /// 
+    /// This method is idempotent - it can be called multiple times safely.
+    pub async fn shutdown(&self) -> Result<()> {
+        // Try to transition from Running to ShuttingDown
+        let prev_state = self.shutdown_state.compare_exchange(
+            ShutdownState::Running as u8,
+            ShutdownState::ShuttingDown as u8,
+            Ordering::AcqRel,
+            Ordering::Acquire
+        );
+        
+        match ShutdownState::from(prev_state.unwrap_or_else(|e| e)) {
+            ShutdownState::Running => {
+                // We successfully initiated shutdown
+                // Shutdown task manager
+                self.task_manager.shutdown().await?;
+                
+                // Mark as fully shutdown
+                self.shutdown_state.store(ShutdownState::Shutdown as u8, Ordering::Release);
+                Ok(())
+            }
+            ShutdownState::ShuttingDown => {
+                // Another thread is already shutting down
+                // Wait for it to complete
+                while ShutdownState::from(self.shutdown_state.load(Ordering::Acquire)) == ShutdownState::ShuttingDown {
+                    tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+                }
+                Ok(())
+            }
+            ShutdownState::Shutdown => {
+                // Already shutdown
+                Ok(())
+            }
+        }
+    }
+}
+
+/// Builder pattern for creating tasks with a fluent API
+pub struct TaskBuilder {
+    function_id: crate::task::FunctionId,
+    args: Vec<TaskArg>,
+    resources: crate::task::spec::TaskResources,
+    /// Stores any error that occurred during building
+    error: Option<RustyRayError>,
+}
+
+impl TaskBuilder {
+    /// Create a new task builder
+    pub fn new(function_id: impl Into<crate::task::FunctionId>) -> Self {
+        TaskBuilder {
+            function_id: function_id.into(),
+            args: Vec::new(),
+            resources: Default::default(),
+            error: None,
+        }
+    }
+    
+    /// Add a value argument
+    /// 
+    /// If serialization fails, the error is stored and will be returned
+    /// when submit() is called.
+    pub fn arg<T: Serialize>(mut self, value: T) -> Self {
+        if self.error.is_none() {
+            match TaskArg::from_value(&value) {
+                Ok(arg) => self.args.push(arg),
+                Err(e) => self.error = Some(e),
+            }
+        }
+        self
+    }
+    
+    /// Add an ObjectRef argument
+    pub fn arg_ref<T>(mut self, object_ref: &ObjectRef<T>) -> Self {
+        self.args.push(TaskArg::from_object_ref(object_ref.id()));
+        self
+    }
+    
+    /// Set CPU requirements
+    pub fn num_cpus(mut self, cpus: f64) -> Self {
+        self.resources.num_cpus = cpus;
+        self
+    }
+    
+    /// Set GPU requirements
+    pub fn num_gpus(mut self, gpus: f64) -> Self {
+        self.resources.num_gpus = gpus;
+        self
+    }
+    
+    /// Build the TaskSpec
+    /// 
+    /// Returns an error if any arguments failed to serialize.
+    pub fn build(self) -> Result<TaskSpec> {
+        if let Some(error) = self.error {
+            return Err(error);
+        }
+        Ok(TaskSpec::normal(self.function_id, self.args)
+            .with_resources(self.resources))
+    }
+    
+    /// Submit the task
+    /// 
+    /// Returns an error if any arguments failed to serialize or if submission fails.
+    pub async fn submit<T>(self, system: &TaskSystem) -> Result<ObjectRef<T>>
+    where
+        T: DeserializeOwned + Send + 'static,
+    {
+        let spec = self.build()?;
+        system.submit(spec).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[tokio::test]
+    async fn test_task_system_basic() {
+        // Create systems
+        let actor_system = Arc::new(ActorSystem::new());
+        let task_system = TaskSystem::new(actor_system.clone());
+        
+        // Register a function
+        task_system.register_function("double", |args| {
+            Box::pin(async move {
+                if args.len() != 1 {
+                    return Err(RustyRayError::Internal("Expected 1 argument".to_string()));
+                }
+                let x: i32 = crate::task::serde_utils::deserialize(&args[0])?;
+                let result = x * 2;
+                Ok(crate::task::serde_utils::serialize(&result).unwrap())
+            })
+        }).unwrap();
+        
+        // Submit a task
+        let args = vec![TaskArg::from_value(&21).unwrap()];
+        let result_ref: ObjectRef<i32> = task_system
+            .submit_task("double".into(), args)
+            .await
+            .unwrap();
+        
+        // Get result
+        let result = result_ref.get().await.unwrap();
+        assert_eq!(result, 42);
+        
+        // Shutdown
+        task_system.shutdown().await.unwrap();
+        actor_system.shutdown().await.unwrap();
+    }
+    
+    #[tokio::test]
+    async fn test_task_builder() {
+        // Create systems
+        let actor_system = Arc::new(ActorSystem::new());
+        let task_system = TaskSystem::new(actor_system.clone());
+        
+        // Register a function
+        task_system.register_function("add", |args| {
+            Box::pin(async move {
+                if args.len() != 2 {
+                    return Err(RustyRayError::Internal("Expected 2 arguments".to_string()));
+                }
+                let x: i32 = crate::task::serde_utils::deserialize(&args[0])?;
+                let y: i32 = crate::task::serde_utils::deserialize(&args[1])?;
+                let result = x + y;
+                Ok(crate::task::serde_utils::serialize(&result).unwrap())
+            })
+        }).unwrap();
+        
+        // Use builder pattern
+        let result_ref: ObjectRef<i32> = TaskBuilder::new("add")
+            .arg(10)
+            .arg(15)
+            .num_cpus(1.0)
+            .submit(&task_system)
+            .await
+            .unwrap();
+        
+        // Get result
+        let result = result_ref.get().await.unwrap();
+        assert_eq!(result, 25);
+        
+        // Shutdown
+        task_system.shutdown().await.unwrap();
+        actor_system.shutdown().await.unwrap();
+    }
+    
+    #[tokio::test]
+    async fn test_object_put_and_dependency() {
+        // Create systems
+        let actor_system = Arc::new(ActorSystem::new());
+        let task_system = TaskSystem::new(actor_system.clone());
+        
+        // Register a function that takes an ObjectRef
+        task_system.register_function("use_ref", |args| {
+            Box::pin(async move {
+                if args.len() != 1 {
+                    return Err(RustyRayError::Internal("Expected 1 argument".to_string()));
+                }
+                let x: i32 = crate::task::serde_utils::deserialize(&args[0])?;
+                let result = x + 100;
+                Ok(crate::task::serde_utils::serialize(&result).unwrap())
+            })
+        }).unwrap();
+        
+        // Put an object
+        let obj_ref = task_system.put(42i32).await.unwrap();
+        
+        // Submit task that uses the object
+        let result_ref: ObjectRef<i32> = TaskBuilder::new("use_ref")
+            .arg_ref(&obj_ref)
+            .submit(&task_system)
+            .await
+            .unwrap();
+        
+        // Get result
+        let result = result_ref.get().await.unwrap();
+        assert_eq!(result, 142);
+        
+        // Shutdown
+        task_system.shutdown().await.unwrap();
+        actor_system.shutdown().await.unwrap();
+    }
+}
