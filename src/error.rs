@@ -26,6 +26,9 @@ pub enum RustyRayError {
     /// Task execution failed.
     TaskExecutionFailed(String),
     
+    /// Message type not recognized by actor.
+    InvalidMessage,
+    
     /// Generic internal error.
     Internal(String),
 }
@@ -39,6 +42,7 @@ impl fmt::Display for RustyRayError {
             Self::MailboxFull(id) => write!(f, "Actor {} mailbox is full", id),
             Self::Timeout(msg) => write!(f, "Operation timed out: {}", msg),
             Self::TaskExecutionFailed(msg) => write!(f, "Task execution failed: {}", msg),
+            Self::InvalidMessage => write!(f, "Invalid message type"),
             Self::Internal(msg) => write!(f, "Internal error: {}", msg),
         }
     }
