@@ -11,19 +11,34 @@ This document outlines the development plan for RustyRay, a Rust implementation 
   - Created working counter example demonstrating stateful actors
   - Achieved all primary deliverables for a working local actor system
 
-- **Phase 2: Task Execution System** 🚀 Current Focus
-  - Next step: Design and implement stateless task execution
-  - Will integrate with existing actor system
+- **Phase 2: Task Execution System** ✅ Completed
+  - Implemented comprehensive task system with TaskManager and TaskSystem
+  - Built ObjectRef with watch channels for multi-consumer futures
+  - Added function registry with task_function! macro
+  - Integrated task cancellation and timeout mechanisms
+  - Fixed all critical issues from code review
+  - Created multiple examples demonstrating task features
+
+- **Phase 2.5: Code Review Improvements** ✅ Completed
+  - Fixed TaskBuilder error propagation
+  - Implemented ObjectRef cloning with tokio::sync::watch
+  - Added comprehensive cancellation/timeout system
+  - Replaced sleep() in tests with proper synchronization
+  - Optimized memory allocations with Bytes type
+
+- **Phase 3.0: Macro System for API Ergonomics** 🚀 Next Focus
+  - Design and implement procedural macros for better developer experience
 
 ## Overview
 
-Based on our analysis of Ray's C++ implementation, we'll build RustyRay in phases:
+Based on our analysis of Ray's C++ implementation and comprehensive code review, we'll build RustyRay in phases:
 
 1. **Local Actor System** ✅ (Completed)
-2. **Task Execution System** (Current Focus)
-3. **Object Store**
-4. **Distributed Runtime**
-5. **Production Features**
+2. **Task Execution System** ✅ (Completed)
+3. **Macro System for API Ergonomics** (Next Focus)
+4. **Local Shared Memory Object Store**
+5. **Distributed Runtime**
+6. **Production Features**
 
 ---
 
@@ -64,44 +79,82 @@ Build a single-node actor system that demonstrates Ray's actor model in Rust.
 Add Ray's task concept - stateless function execution with dependencies.
 
 ### 2.1 Task Infrastructure
-- [ ] Define Task and TaskId types
-- [ ] Create TaskSpec for task definitions
-- [ ] Implement TaskManager
-- [ ] Add future/promise primitives
+- [x] Define Task and TaskId types
+- [x] Create TaskSpec for task definitions
+- [x] Implement TaskManager with worker pattern
+- [x] Add ObjectRef as typed futures
 
 ### 2.2 Task Scheduling
-- [ ] Local task queue
-- [ ] Worker pool for task execution
-- [ ] Task dependency tracking
-- [ ] Result handling and caching
+- [x] Local task queue with mpsc channels
+- [x] Async task execution with tokio
+- [x] Task dependency tracking and resolution
+- [x] Result handling with ObjectRef
 
 ### 2.3 Integration with Actors
-- [ ] Tasks can create actors
-- [ ] Tasks can call actor methods
-- [ ] Actors can submit tasks
-- [ ] Unified error handling
+- [x] Unified TaskSystem and ActorSystem
+- [x] Shared execution environment
+- [x] Unified error handling with Result types
+- [x] Comprehensive shutdown mechanisms
 
-**Deliverable**: Tasks and actors working together locally
+### 2.4 Additional Features (Phase 2.5)
+- [x] Task cancellation and timeouts
+- [x] Error propagation through ObjectRef
+- [x] Zero-copy object store with Bytes
+- [x] Instance-based function registry
+
+**Deliverable**: Tasks and actors working together locally ✅
 
 ---
 
-## Phase 3: Object Store 📦
+## Phase 3: Macro System for API Ergonomics 🎯 (Next Focus)
+
+Implement procedural macros to dramatically improve the developer experience.
+
+### 3.1 Function Macros
+- [ ] #[rustyray::remote] for automatic function registration
+- [ ] Automatic serialization/deserialization handling
+- [ ] Type-safe function signatures
+- [ ] Support for async functions
+
+### 3.2 Actor Macros
+- [ ] #[rustyray::actor] for actor structs
+- [ ] #[rustyray::actor_methods] for typed method handles
+- [ ] Eliminate Box<dyn Any> boilerplate
+- [ ] Generate typed ActorHandle<T> automatically
+
+### 3.3 Runtime Macros
+- [ ] #[rustyray::main] for global runtime initialization
+- [ ] Automatic TaskSystem/ActorSystem setup
+- [ ] Global context for task submission
+- [ ] Clean shutdown handling
+
+### 3.4 Examples and Documentation
+- [ ] Update all examples to use macro API
+- [ ] Comprehensive macro documentation
+- [ ] Migration guide from manual API
+- [ ] Performance benchmarks
+
+**Deliverable**: Python-like simplicity with Rust's type safety
+
+---
+
+## Phase 4: Local Shared Memory Object Store 📦
 
 Implement a simplified version of Plasma for efficient data sharing.
 
-### 3.1 Object Management
+### 4.1 Object Management
 - [ ] ObjectId generation
 - [ ] Object serialization/deserialization
 - [ ] Reference counting
 - [ ] Basic garbage collection
 
-### 3.2 Storage Backend
+### 4.2 Storage Backend
 - [ ] In-memory store (HashMap-based)
 - [ ] Shared memory support (using memmap2)
 - [ ] Object eviction policies
 - [ ] Memory limits and quotas
 
-### 3.3 Integration
+### 4.3 Integration
 - [ ] Actors can put/get objects
 - [ ] Tasks automatically store results
 - [ ] Zero-copy reads where possible
@@ -111,29 +164,29 @@ Implement a simplified version of Plasma for efficient data sharing.
 
 ---
 
-## Phase 4: Distributed Runtime 🌐
+## Phase 5: Distributed Runtime 🌐
 
 Transform RustyRay into a true distributed system.
 
-### 4.1 Networking Layer
+### 5.1 Networking Layer
 - [ ] gRPC service definitions (using tonic)
 - [ ] Node discovery and registration
 - [ ] Heartbeat and failure detection
 - [ ] Message routing between nodes
 
-### 4.2 Global Control Store (GCS)
+### 5.2 Global Control Store (GCS)
 - [ ] Actor registry (global actor table)
 - [ ] Node information table
 - [ ] Object location table
 - [ ] Distributed metadata management
 
-### 4.3 Distributed Actors
+### 5.3 Distributed Actors
 - [ ] Remote actor creation
 - [ ] Cross-node message passing
 - [ ] Actor migration (stretch goal)
 - [ ] Location transparency
 
-### 4.4 Distributed Tasks
+### 5.4 Distributed Tasks
 - [ ] Task scheduling across nodes
 - [ ] Load balancing
 - [ ] Data locality awareness
@@ -143,29 +196,29 @@ Transform RustyRay into a true distributed system.
 
 ---
 
-## Phase 5: Production Features 🏭
+## Phase 6: Production Features 🏭
 
 Add features needed for production use.
 
-### 5.1 Fault Tolerance
+### 6.1 Fault Tolerance
 - [ ] Actor supervision trees
 - [ ] Automatic actor restart
 - [ ] Task retry mechanisms
 - [ ] Cluster recovery from node failures
 
-### 5.2 Performance
+### 6.2 Performance
 - [ ] Performance benchmarks
 - [ ] Optimization pass
 - [ ] Profiling and metrics
 - [ ] Resource management
 
-### 5.3 Observability
+### 6.3 Observability
 - [ ] Distributed tracing
 - [ ] Metrics collection
 - [ ] Logging framework
 - [ ] Dashboard (stretch goal)
 
-### 5.4 Advanced Features
+### 6.4 Advanced Features
 - [ ] Actor scheduling policies
 - [ ] Resource requirements/constraints
 - [ ] Streaming/generator tasks
@@ -185,11 +238,12 @@ Add features needed for production use.
 
 ## Success Metrics
 
-- **Phase 1**: Can create actors and send messages
-- **Phase 2**: Can execute tasks with dependencies
-- **Phase 3**: Can share large objects efficiently
-- **Phase 4**: Can run actors across multiple nodes
-- **Phase 5**: Comparable performance to Ray for basic operations
+- **Phase 1**: Can create actors and send messages ✅
+- **Phase 2**: Can execute tasks with dependencies ✅
+- **Phase 3**: API as simple as Ray's Python API
+- **Phase 4**: Can share large objects efficiently
+- **Phase 5**: Can run actors across multiple nodes
+- **Phase 6**: Comparable performance to Ray for basic operations
 
 ## Open Questions
 
