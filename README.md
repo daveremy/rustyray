@@ -71,7 +71,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rustyray = { git = "https://github.com/yourusername/rustyray" }
+rustyray = { git = "https://github.com/daveremy/rustyray" }
 ```
 
 ### Quick Example
@@ -116,7 +116,7 @@ async fn main() -> rustyray::error::Result<()> {
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/rustyray
+git clone https://github.com/daveremy/rustyray
 cd rustyray
 
 # Run tests
