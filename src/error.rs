@@ -1,5 +1,5 @@
 //! Error types for RustyRay operations.
-//! 
+//!
 //! This module defines the various error conditions that can occur
 //! in RustyRay, inspired by Ray's error handling but adapted for Rust.
 
@@ -10,25 +10,25 @@ use std::fmt;
 pub enum RustyRayError {
     /// Actor with the given ID was not found.
     ActorNotFound(crate::types::ActorId),
-    
+
     /// Actor has been killed/terminated.
     ActorDead(crate::types::ActorId),
-    
+
     /// Failed to send message to actor.
     MessageSendFailed(String),
-    
+
     /// Actor mailbox is full (for bounded channels).
     MailboxFull(crate::types::ActorId),
-    
+
     /// Timeout waiting for actor response.
     Timeout(String),
-    
+
     /// Task execution failed.
     TaskExecutionFailed(String),
-    
+
     /// Message type not recognized by actor.
     InvalidMessage,
-    
+
     /// Generic internal error.
     Internal(String),
 }

@@ -1,7 +1,7 @@
 //! Test utilities for synchronization and coordination in tests
 
 use std::sync::Arc;
-use tokio::sync::{Barrier, Notify, oneshot};
+use tokio::sync::{oneshot, Barrier, Notify};
 
 /// A synchronization point that can be used to coordinate test execution
 pub struct TestSync {
@@ -19,7 +19,7 @@ impl TestSync {
             notify: Arc::new(Notify::new()),
         }
     }
-    
+
     /// Create a simple notification-based synchronization
     pub fn notification() -> Arc<Notify> {
         Arc::new(Notify::new())
@@ -37,18 +37,24 @@ impl TestGate {
     pub fn new() -> (Self, Self) {
         let (tx, rx) = oneshot::channel();
         (
-            TestGate { tx: Some(tx), rx: None },
-            TestGate { tx: None, rx: Some(rx) },
+            TestGate {
+                tx: Some(tx),
+                rx: None,
+            },
+            TestGate {
+                tx: None,
+                rx: Some(rx),
+            },
         )
     }
-    
+
     /// Open the gate (sender side)
     pub fn open(mut self) {
         if let Some(tx) = self.tx.take() {
             let _ = tx.send(());
         }
     }
-    
+
     /// Wait for the gate to open (receiver side)
     pub async fn wait(&mut self) {
         if let Some(rx) = self.rx.take() {

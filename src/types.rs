@@ -1,5 +1,5 @@
 //! Core types used throughout RustyRay.
-//! 
+//!
 //! This module defines the fundamental types that mirror Ray's concepts
 //! but adapted for Rust's type system.
 
@@ -14,7 +14,7 @@ static ACTOR_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 static TASK_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 /// Unique identifier for an actor.
-/// 
+///
 /// In Ray, actor IDs are unique across the cluster. For now, we'll use
 /// a simple incrementing counter, but eventually this should be:
 /// - Globally unique (across nodes)
@@ -29,7 +29,7 @@ impl ActorId {
         let id = ACTOR_ID_COUNTER.fetch_add(1, Ordering::SeqCst);
         ActorId(id)
     }
-    
+
     /// Get the inner ID value.
     pub fn as_u64(&self) -> u64 {
         self.0
@@ -43,7 +43,7 @@ impl fmt::Display for ActorId {
 }
 
 /// Unique identifier for a task.
-/// 
+///
 /// Tasks in Ray are stateless function executions. Each task has a unique ID
 /// for tracking execution, dependencies, and results.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -55,7 +55,7 @@ impl TaskId {
         let id = TASK_ID_COUNTER.fetch_add(1, Ordering::SeqCst);
         TaskId(id)
     }
-    
+
     /// Get the inner ID value.
     pub fn as_u64(&self) -> u64 {
         self.0
@@ -76,7 +76,7 @@ impl From<crate::task::ObjectId> for TaskId {
 }
 
 /// Result type for actor operations.
-/// 
+///
 /// Eventually this will handle serialization/deserialization for
 /// sending results across the network.
 pub type ActorResult<T> = Result<T, crate::error::RustyRayError>;
