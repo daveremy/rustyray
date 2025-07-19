@@ -2,16 +2,22 @@
 
 This document outlines the development plan for RustyRay, a Rust implementation of Ray Core. Each phase builds on the previous one, allowing us to develop incrementally while learning Ray's architecture.
 
+## Current Status
+
+- **GitHub Repository**: https://github.com/daveremy/rustyray
+- **Latest Version**: 0.2.5 (Phase 2.5 Complete)
+- **Next Release**: 0.3.0 (Phase 3 - Macro System)
+
 ## Progress Summary
 
-- **Phase 1: Local Actor System** ✅ Completed
+- **Phase 1: Local Actor System** ✅ Completed (v0.1.0)
   - Implemented core actor infrastructure with ActorId, ActorRef, and ActorSystem
   - Built async message passing using tokio channels
   - Added actor lifecycle management (start, stop, graceful shutdown)
   - Created working counter example demonstrating stateful actors
   - Achieved all primary deliverables for a working local actor system
 
-- **Phase 2: Task Execution System** ✅ Completed
+- **Phase 2: Task Execution System** ✅ Completed (v0.2.0)
   - Implemented comprehensive task system with TaskManager and TaskSystem
   - Built ObjectRef with watch channels for multi-consumer futures
   - Added function registry with task_function! macro
@@ -19,15 +25,18 @@ This document outlines the development plan for RustyRay, a Rust implementation 
   - Fixed all critical issues from code review
   - Created multiple examples demonstrating task features
 
-- **Phase 2.5: Code Review Improvements** ✅ Completed
-  - Fixed TaskBuilder error propagation
-  - Implemented ObjectRef cloning with tokio::sync::watch
-  - Added comprehensive cancellation/timeout system
-  - Replaced sleep() in tests with proper synchronization
-  - Optimized memory allocations with Bytes type
+- **Phase 2.5: Code Review Improvements** ✅ Completed (v0.2.5)
+  - Fixed TaskBuilder error propagation with proper Result handling
+  - Implemented ObjectRef cloning with tokio::sync::watch for broadcast
+  - Added comprehensive cancellation/timeout system with TaskTracker
+  - Replaced sleep() in tests with proper synchronization primitives
+  - Optimized memory allocations with bytes::Bytes for zero-copy
+  - Received "Excellent" rating from Gemini comprehensive review
+  - Published to GitHub with CI/CD pipeline
 
-- **Phase 3.0: Macro System for API Ergonomics** 🚀 Next Focus
-  - Design and implement procedural macros for better developer experience
+- **Phase 3: Macro System for API Ergonomics** 🚀 Current Focus (6 weeks)
+  - Timeline: Started January 2025
+  - Goal: Python-like simplicity with Rust's type safety
 
 ## Overview
 
@@ -106,35 +115,49 @@ Add Ray's task concept - stateless function execution with dependencies.
 
 ---
 
-## Phase 3: Macro System for API Ergonomics 🎯 (Next Focus)
+## Phase 3: Macro System for API Ergonomics 🎯 (Current - 6 Weeks)
 
-Implement procedural macros to dramatically improve the developer experience.
+Implement procedural macros to dramatically improve the developer experience. Goal: 70% reduction in boilerplate code.
 
-### 3.1 Function Macros
+### 3.1 Function Macros (Week 2)
 - [ ] #[rustyray::remote] for automatic function registration
+- [ ] Support for both async and sync functions
 - [ ] Automatic serialization/deserialization handling
-- [ ] Type-safe function signatures
-- [ ] Support for async functions
+- [ ] Type-safe function signatures with compile-time validation
+- [ ] ObjectRef<T> parameter support for task chaining
+- [ ] Resource requirements (num_cpus, num_gpus)
 
-### 3.2 Actor Macros
-- [ ] #[rustyray::actor] for actor structs
+### 3.2 Actor Macros (Week 3)
+- [ ] #[rustyray::actor] for actor structs with resource requirements
 - [ ] #[rustyray::actor_methods] for typed method handles
-- [ ] Eliminate Box<dyn Any> boilerplate
+- [ ] Eliminate Box<dyn Any> boilerplate completely
 - [ ] Generate typed ActorHandle<T> automatically
+- [ ] Support for Result<T, E> return types with custom errors
+- [ ] Constructor pattern with Actor::remote(...)
 
-### 3.3 Runtime Macros
+### 3.3 Runtime Macros (Week 4)
 - [ ] #[rustyray::main] for global runtime initialization
 - [ ] Automatic TaskSystem/ActorSystem setup
 - [ ] Global context for task submission
 - [ ] Clean shutdown handling
+- [ ] Compile-time function registration with linkme
 
-### 3.4 Examples and Documentation
+### 3.4 Polish & Release (Week 5-6)
 - [ ] Update all examples to use macro API
 - [ ] Comprehensive macro documentation
 - [ ] Migration guide from manual API
-- [ ] Performance benchmarks
+- [ ] Performance benchmarks (<5% overhead target)
+- [ ] Error message excellence with syn::Error::new_spanned
+- [ ] Generic support (stretch goal)
+- [ ] Beta release and community feedback
 
-**Deliverable**: Python-like simplicity with Rust's type safety
+**Success Metrics**:
+- API simplicity: 70% less boilerplate
+- Type safety: 100% compile-time validation
+- Performance: <5% overhead vs manual
+- Developer satisfaction: 90% positive feedback
+
+**Deliverable**: Python-like simplicity with Rust's type safety (v0.3.0)
 
 ---
 
@@ -240,18 +263,34 @@ Add features needed for production use.
 
 - **Phase 1**: Can create actors and send messages ✅
 - **Phase 2**: Can execute tasks with dependencies ✅
-- **Phase 3**: API as simple as Ray's Python API
-- **Phase 4**: Can share large objects efficiently
-- **Phase 5**: Can run actors across multiple nodes
+- **Phase 2.5**: All code review issues addressed, "Excellent" rating achieved ✅
+- **Phase 3**: API as simple as Ray's Python API (70% less boilerplate)
+- **Phase 4**: Can share large objects efficiently (<10ms latency)
+- **Phase 5**: Can run actors across multiple nodes (linear scalability)
 - **Phase 6**: Comparable performance to Ray for basic operations
+
+## Timeline Estimates
+
+- **Phase 3**: 6 weeks (January - February 2025)
+- **Phase 4**: 4 weeks (March 2025)
+- **Phase 5**: 8-10 weeks (April - May 2025)
+- **Phase 6**: 6-8 weeks (June - July 2025)
+- **Version 1.0**: Q3 2025
+
+## Technical Decisions Made
+
+1. **Serialization**: Using serde for now, evaluate protocol compatibility in Phase 5
+2. **Async Runtime**: Committed to tokio for ecosystem compatibility
+3. **Memory Model**: Start with HashMap, add shared memory in Phase 4
+4. **Error Handling**: Using thiserror for type-safe errors
+5. **Testing**: Comprehensive unit and integration tests with CI/CD
 
 ## Open Questions
 
-1. **Serialization**: Serde vs custom? Compatibility with Ray's protocol?
-2. **Async Runtime**: Tokio vs async-std vs custom?
-3. **Memory Model**: How closely to follow Plasma's design?
-4. **Protocol Compatibility**: Should we aim for Ray protocol compatibility?
-5. **Language Bindings**: Python bindings for RustyRay?
+1. **Protocol Compatibility**: Should we aim for Ray protocol compatibility in Phase 5?
+2. **Language Bindings**: Python bindings for RustyRay (Phase 6+)?
+3. **Cluster Management**: Use existing solutions or build custom?
+4. **GPU Support**: Priority and approach for GPU resource management?
 
 ## Converting to GitHub Issues
 
