@@ -28,4 +28,8 @@ Thumbs.db
 /target/doc
 
 # Benchmark results
-/target/criterion.env
+/target/criterion
+
+# Environment files
+.env
+.env.*
