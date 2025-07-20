@@ -1,0 +1,13 @@
+error: #[actor] does not support generic parameters yet
+ --> tests/ui/fail/actor_with_generics.rs:5:20
+  |
+5 | struct GenericActor<T> {
+  |                    ^^^
+
+warning: unused import: `rustyray::prelude::*`
+ --> tests/ui/fail/actor_with_generics.rs:1:5
+  |
+1 | use rustyray::prelude::*;
+  |     ^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default

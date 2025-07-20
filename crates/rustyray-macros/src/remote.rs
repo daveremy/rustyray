@@ -1,5 +1,6 @@
 //! Implementation of the #[remote] macro
 
+use crate::utils::{is_object_ref_type, is_result_type, extract_result_ok_type};
 use darling::FromMeta;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
@@ -36,52 +37,6 @@ pub fn remote_impl(args: TokenStream, input: TokenStream) -> TokenStream {
     let result = generate_remote_module(&input_fn, &args);
     
     TokenStream::from(result)
-}
-
-fn is_object_ref_type(ty: &syn::Type) -> bool {
-    match ty {
-        syn::Type::Path(type_path) => {
-            if let Some(segment) = type_path.path.segments.last() {
-                segment.ident == "ObjectRef"
-            } else {
-                false
-            }
-        }
-        syn::Type::Reference(type_ref) => is_object_ref_type(&type_ref.elem),
-        _ => false,
-    }
-}
-
-fn is_result_type(ty: &syn::Type) -> bool {
-    match ty {
-        syn::Type::Path(type_path) => {
-            if let Some(segment) = type_path.path.segments.last() {
-                segment.ident == "Result"
-            } else {
-                false
-            }
-        }
-        _ => false,
-    }
-}
-
-fn extract_result_ok_type(ty: &syn::Type) -> proc_macro2::TokenStream {
-    match ty {
-        syn::Type::Path(type_path) => {
-            if let Some(segment) = type_path.path.segments.last() {
-                if segment.ident == "Result" {
-                    if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
-                        if let Some(syn::GenericArgument::Type(ok_type)) = args.args.first() {
-                            return quote! { #ok_type };
-                        }
-                    }
-                }
-            }
-        }
-        _ => {}
-    }
-    // Fallback - shouldn't happen if is_result_type returned true
-    quote! { () }
 }
 
 fn validate_remote_function(func: &ItemFn) -> syn::Result<()> {
@@ -185,7 +140,7 @@ fn generate_remote_module(func: &ItemFn, args: &RemoteArgs) -> proc_macro2::Toke
             let is_result = is_result_type(ty);
             if is_result {
                 // Extract T from Result<T, E>
-                let inner_type = extract_result_ok_type(ty);
+                let inner_type = extract_result_ok_type(ty).unwrap_or_else(|| quote! { () });
                 (quote! { #ty }, inner_type, true)
             } else {
                 (quote! { #ty }, quote! { #ty }, false)

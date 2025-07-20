@@ -17,4 +17,6 @@ darling.workspace = true
 
 [dev-dependencies]
 rustyray-core = { workspace = true }
+rustyray = { path = "../rustyray" }
 trybuild.workspace = true
+tokio-test = "0.4"

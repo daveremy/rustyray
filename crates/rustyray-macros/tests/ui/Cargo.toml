@@ -1,0 +1,11 @@
+[package]
+name = "ui-tests"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+rustyray = { path = "../../../rustyray" }
+serde = { version = "1.0", features = ["derive"] }
+async-trait = "0.1"
+tokio = { version = "1.0", features = ["macros", "rt"] }

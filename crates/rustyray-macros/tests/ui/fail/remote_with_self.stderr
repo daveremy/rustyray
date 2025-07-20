@@ -1,0 +1,13 @@
+error: #[remote] cannot be used on methods with self parameter
+ --> tests/ui/fail/remote_with_self.rs:8:14
+  |
+8 |     async fn compute(&self, x: i32, y: i32) -> i32 {
+  |              ^^^^^^^
+
+warning: unused import: `rustyray::prelude::*`
+ --> tests/ui/fail/remote_with_self.rs:1:5
+  |
+1 | use rustyray::prelude::*;
+  |     ^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
