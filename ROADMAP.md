@@ -149,13 +149,14 @@ Implement procedural macros to dramatically improve the developer experience. Go
 - [ ] Enhanced error propagation for Results
 
 ### 3.4 Polish & Release (Week 5-6)
-- [ ] Update all examples to use macro API
-- [ ] Comprehensive macro documentation
+- [x] Update all examples to use macro API (Week 3)
 - [ ] Migration guide from manual API
 - [ ] Performance benchmarks (<5% overhead target)
 - [ ] Error message excellence with syn::Error::new_spanned
 - [ ] Generic support (stretch goal)
 - [ ] Beta release and community feedback
+- [ ] Comprehensive rustdoc documentation (deferred to post-feedback)
+      See: https://doc.rust-lang.org/rustdoc/how-to-write-documentation.html
 
 **Success Metrics**:
 - API simplicity: 70% less boilerplate
@@ -164,6 +165,9 @@ Implement procedural macros to dramatically improve the developer experience. Go
 - Developer satisfaction: 90% positive feedback
 
 **Deliverable**: Python-like simplicity with Rust's type safety (v0.3.0)
+
+**Documentation Strategy**: Focus on examples and migration guide during development. 
+Comprehensive rustdoc will be written after API stabilization based on user feedback.
 
 ---
 
