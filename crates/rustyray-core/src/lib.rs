@@ -83,10 +83,10 @@ mod tests;
 pub mod test_utils;
 
 // Re-exports for convenience
-pub use error::{Result, RustyRayError};
 pub use actor::{Actor, ActorRef, ActorSystem};
+pub use error::{Result, RustyRayError};
+pub use runtime::{RemoteFunctionRegistration, REMOTE_FUNCTIONS};
 pub use task::{ObjectRef, TaskBuilder, TaskSystem};
-pub use runtime::{REMOTE_FUNCTIONS, RemoteFunctionRegistration};
 
 // Future modules (commented out until we need them):
 // pub mod object;    // Object store for data sharing

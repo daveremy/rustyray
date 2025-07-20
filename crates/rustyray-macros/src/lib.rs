@@ -5,8 +5,8 @@
 
 use proc_macro::TokenStream;
 
-mod remote;
 mod actor;
+mod remote;
 mod utils;
 
 /// Mark a function as remotely executable.

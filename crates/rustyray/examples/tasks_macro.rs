@@ -16,7 +16,7 @@ async fn square(x: i32) -> i32 {
 }
 
 /// Remote function that takes ObjectRef arguments
-/// 
+///
 /// NOTE: This currently fails with "ObjectRef has no state" error when called
 /// because distributed object resolution is not yet implemented. Once Phase 4
 /// implements the shared memory object store, this will work correctly.
@@ -39,28 +39,28 @@ impl Coordinator {
     pub fn new(name: String) -> Self {
         Coordinator { name }
     }
-    
+
     pub async fn process_items(&mut self, count: usize) -> i32 {
         println!("{}: Processing {} items", self.name, count);
-        
+
         // Submit parallel tasks using the macro-generated API
         let mut futures = Vec::new();
         for i in 0..count {
             let future = square_remote::remote(i as i32).await.unwrap();
             futures.push(future);
         }
-        
+
         // Wait for all results and sum them
         let mut sum = 0;
         for future in futures {
             let result = future.get().await.unwrap();
             sum += result;
         }
-        
+
         println!("{}: Sum of squares = {}", self.name, sum);
         sum
     }
-    
+
     pub async fn chain_computation(&self) -> i32 {
         println!("{}: Chain computation not available yet", self.name);
         // NOTE: This method demonstrates ObjectRef chaining which requires
@@ -81,13 +81,13 @@ impl Coordinator {
 #[rustyray::main]
 async fn main() -> Result<()> {
     println!("=== RustyRay Tasks Example with Macros ===\n");
-    
+
     // Example 1: Direct remote function calls
     println!("1. Direct remote function calls:");
     let result1 = square_remote::remote(7).await?;
     let value1 = result1.get().await?;
     println!("   square(7) = {}", value1);
-    
+
     // Example 2: Chained computation with ObjectRefs
     // NOTE: This example currently fails due to ObjectRef serialization limitations.
     // It will work once the distributed object store is implemented in Phase 4.
@@ -100,21 +100,21 @@ async fn main() -> Result<()> {
     let total = sum.get().await?;
     println!("   square(4) + square(6) = {}", total);
     */
-    
+
     // Example 3: Using an actor
     println!("\n3. Actor-based task coordination:");
     let coordinator = Coordinator::remote("MainCoordinator".to_string()).await?;
-    
+
     // Process items through the actor
     let actor_result = coordinator.process_items(5).await?;
     let actor_sum = actor_result.get().await?;
     println!("   Actor computed sum: {}", actor_sum);
-    
+
     // Chain computation through actor
     let chain_result = coordinator.chain_computation().await?;
     let chain_value = chain_result.get().await?;
     println!("   Actor chain result: {}", chain_value);
-    
+
     println!("\n✓ All tasks completed successfully!");
     Ok(())
 }

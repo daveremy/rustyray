@@ -1,5 +1,5 @@
 //! RustyRay - A Rust implementation of Ray Core
-//! 
+//!
 //! This is the main entry point that re-exports everything from the core
 //! and macro crates, providing a unified API surface.
 
@@ -12,14 +12,17 @@ pub use rustyray_macros::*;
 // Prelude for common imports
 pub mod prelude {
     pub use crate::{
+        actor,
         // Core types
         actor::{Actor, ActorRef, ActorSystem},
-        task::{ObjectRef, TaskBuilder, TaskSystem},
-        error::{RustyRayError, Result},
-        
+        actor_methods,
+        error::{Result, RustyRayError},
+
+        main,
         // Macros
-        remote, actor, actor_methods, main,
+        remote,
+        task::{ObjectRef, TaskBuilder, TaskSystem},
     };
-    
+
     pub use async_trait::async_trait;
 }

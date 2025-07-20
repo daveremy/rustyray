@@ -1,6 +1,6 @@
 use async_trait::async_trait;
-use rustyray::actor::{Actor, ActorSystem};
-use rustyray::error::Result;
+use rustyray_core::actor::{Actor, ActorSystem};
+use rustyray_core::error::Result;
 use std::any::Any;
 
 /// A simple counter actor that maintains internal state.
@@ -44,7 +44,7 @@ impl Actor for Counter {
                 }
             }
         } else {
-            Err(rustyray::error::RustyRayError::InvalidMessage)
+            Err(rustyray_core::error::RustyRayError::InvalidMessage)
         }
     }
 

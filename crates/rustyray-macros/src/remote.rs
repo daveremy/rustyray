@@ -1,6 +1,6 @@
 //! Implementation of the #[remote] macro
 
-use crate::utils::{is_object_ref_type, is_result_type, extract_result_ok_type};
+use crate::utils::{extract_result_ok_type, is_object_ref_type, is_result_type};
 use darling::FromMeta;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
@@ -20,34 +20,39 @@ pub fn remote_impl(args: TokenStream, input: TokenStream) -> TokenStream {
         Ok(v) => v,
         Err(e) => return TokenStream::from(darling::Error::from(e).write_errors()),
     };
-    
+
     let args = match RemoteArgs::from_list(&args) {
         Ok(v) => v,
         Err(e) => return TokenStream::from(e.write_errors()),
     };
-    
+
     let input_fn = parse_macro_input!(input as ItemFn);
-    
+
     // Validate function
     if let Err(e) = validate_remote_function(&input_fn) {
         return TokenStream::from(e.to_compile_error());
     }
-    
+
     // Generate the remote function module
     let result = generate_remote_module(&input_fn, &args);
-    
+
     TokenStream::from(result)
 }
 
 fn validate_remote_function(func: &ItemFn) -> syn::Result<()> {
     // Check for self parameter
-    if func.sig.inputs.iter().any(|arg| matches!(arg, syn::FnArg::Receiver(_))) {
+    if func
+        .sig
+        .inputs
+        .iter()
+        .any(|arg| matches!(arg, syn::FnArg::Receiver(_)))
+    {
         return Err(syn::Error::new_spanned(
             &func.sig.ident,
             "#[remote] cannot be used on methods with self parameter",
         ));
     }
-    
+
     // Check for const
     if func.sig.constness.is_some() {
         return Err(syn::Error::new_spanned(
@@ -55,7 +60,7 @@ fn validate_remote_function(func: &ItemFn) -> syn::Result<()> {
             "#[remote] functions cannot be const",
         ));
     }
-    
+
     // Check for unsafe
     if func.sig.unsafety.is_some() {
         return Err(syn::Error::new_spanned(
@@ -63,7 +68,7 @@ fn validate_remote_function(func: &ItemFn) -> syn::Result<()> {
             "#[remote] functions cannot be unsafe",
         ));
     }
-    
+
     // Check for lifetime parameters
     if func.sig.generics.lifetimes().count() > 0 {
         return Err(syn::Error::new_spanned(
@@ -71,7 +76,7 @@ fn validate_remote_function(func: &ItemFn) -> syn::Result<()> {
             "#[remote] functions cannot have lifetime parameters",
         ));
     }
-    
+
     // Check for generic parameters
     if !func.sig.generics.params.is_empty() {
         return Err(syn::Error::new_spanned(
@@ -79,7 +84,7 @@ fn validate_remote_function(func: &ItemFn) -> syn::Result<()> {
             "#[remote] functions cannot have generic parameters (yet)",
         ));
     }
-    
+
     Ok(())
 }
 
@@ -90,9 +95,9 @@ fn generate_remote_module(func: &ItemFn, args: &RemoteArgs) -> proc_macro2::Toke
     let fn_body = &func.block;
     let fn_vis = &func.vis;
     let is_async = func.sig.asyncness.is_some();
-    
+
     let mod_name = Ident::new(&format!("{}_remote", fn_name), Span::call_site());
-    
+
     // Extract parameter names and types
     let params: Vec<_> = fn_inputs
         .iter()
@@ -101,7 +106,7 @@ fn generate_remote_module(func: &ItemFn, args: &RemoteArgs) -> proc_macro2::Toke
             _ => None,
         })
         .collect();
-    
+
     let param_names = params
         .iter()
         .map(|param| match &*param.pat {
@@ -112,14 +117,14 @@ fn generate_remote_module(func: &ItemFn, args: &RemoteArgs) -> proc_macro2::Toke
             )),
         })
         .collect::<syn::Result<Vec<_>>>();
-    
+
     let param_names = match param_names {
         Ok(names) => names,
         Err(e) => return e.to_compile_error(),
     };
-    
+
     let param_types: Vec<_> = params.iter().map(|param| &*param.ty).collect();
-    
+
     // Generate the appropriate arg calls based on parameter types
     let add_arg_calls: Vec<_> = params
         .iter()
@@ -132,7 +137,7 @@ fn generate_remote_module(func: &ItemFn, args: &RemoteArgs) -> proc_macro2::Toke
             }
         })
         .collect();
-    
+
     // Extract return type and check if it's already a Result
     let (return_type, object_ref_type, returns_result) = match fn_output {
         ReturnType::Default => (quote! { () }, quote! { () }, false),
@@ -147,7 +152,7 @@ fn generate_remote_module(func: &ItemFn, args: &RemoteArgs) -> proc_macro2::Toke
             }
         }
     };
-    
+
     // Generate the function execution for registration
     // The task_function macro expects a Result, so we need to wrap non-Result returns
     let function_execution = if returns_result {
@@ -183,7 +188,7 @@ fn generate_remote_module(func: &ItemFn, args: &RemoteArgs) -> proc_macro2::Toke
             }
         }
     };
-    
+
     // Generate resource requirements
     let resource_config = if args.num_cpus.is_some() || args.num_gpus.is_some() {
         let num_cpus = args.num_cpus.unwrap_or(1.0);
@@ -195,23 +200,27 @@ fn generate_remote_module(func: &ItemFn, args: &RemoteArgs) -> proc_macro2::Toke
     } else {
         quote! {}
     };
-    
+
     // Generate the module
     quote! {
         // Original function remains accessible
         #func
-        
+
         // Generated module for remote execution
         #fn_vis mod #mod_name {
             use super::*;
             use rustyray_core::{TaskBuilder, ObjectRef, Result, RustyRayError};
             use rustyray_core::runtime;
-            
+
             /// Execute this function remotely
             pub fn remote(#fn_inputs) -> impl std::future::Future<Output = Result<ObjectRef<#object_ref_type>>> {
                 async move {
-                    let task_system = runtime::global()?.task_system();
-                    
+                    use rustyray_core::error::ResultExt;
+
+                    let task_system = runtime::global()
+                        .context(format!("Runtime not available for remote function '{}'", stringify!(#fn_name)))?
+                        .task_system();
+
                     TaskBuilder::new(stringify!(#fn_name))
                         #(
                             #add_arg_calls
@@ -219,12 +228,13 @@ fn generate_remote_module(func: &ItemFn, args: &RemoteArgs) -> proc_macro2::Toke
                         #resource_config
                         .submit::<#object_ref_type>(&task_system)
                         .await
+                        .context(format!("Failed to submit remote function '{}' for execution", stringify!(#fn_name)))
                 }
             }
-            
+
             // Registration with linkme
             #[linkme::distributed_slice(rustyray_core::runtime::REMOTE_FUNCTIONS)]
-            static REGISTER: rustyray_core::runtime::RemoteFunctionRegistration = 
+            static REGISTER: rustyray_core::runtime::RemoteFunctionRegistration =
                 rustyray_core::runtime::RemoteFunctionRegistration {
                     name: stringify!(#fn_name),
                     register: |system| {
@@ -233,7 +243,7 @@ fn generate_remote_module(func: &ItemFn, args: &RemoteArgs) -> proc_macro2::Toke
                             #function_execution
                         );
                         if let Err(e) = system.register_function(stringify!(#fn_name), func) {
-                            eprintln!("Warning: Failed to register remote function '{}': {}", 
+                            eprintln!("Warning: Failed to register remote function '{}': {}",
                                      stringify!(#fn_name), e);
                         }
                     },

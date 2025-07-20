@@ -2,7 +2,12 @@
 
 pub use crate::{
     // Core types
-    Actor, ActorRef, ActorSystem,
-    ObjectRef, TaskBuilder, TaskSystem,
-    Result, RustyRayError,
+    Actor,
+    ActorRef,
+    ActorSystem,
+    ObjectRef,
+    Result,
+    RustyRayError,
+    TaskBuilder,
+    TaskSystem,
 };

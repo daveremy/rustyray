@@ -31,22 +31,22 @@ async fn stage3(prev1: ObjectRef<i32>, prev2: ObjectRef<i32>) -> Result<i32> {
 #[rustyray::main]
 async fn main() -> Result<()> {
     println!("=== RustyRay ObjectRef Demo ===\n");
-    
+
     // Stage 1: Initial computation
     println!("Starting pipeline...");
     let stage1_ref = stage1_remote::remote(10).await?;
-    
+
     // Stage 2: Depends on stage 1
     let stage2_ref = stage2_remote::remote(stage1_ref.clone(), 5).await?;
-    
+
     // Stage 3: Depends on both stage 1 and stage 2
     let stage3_ref = stage3_remote::remote(stage1_ref, stage2_ref).await?;
-    
+
     // Get final result
     println!("\nGetting final result...");
     let final_result = stage3_ref.get().await?;
     println!("Final result: {}", final_result);
     println!("\nExpected: (10 * 2) * ((10 * 2) + 5) = 20 * 25 = 500");
-    
+
     Ok(())
 }

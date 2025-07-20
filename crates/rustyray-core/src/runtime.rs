@@ -1,8 +1,8 @@
 //! Global runtime management for RustyRay
 
-use crate::{ActorSystem, TaskSystem, Result, RustyRayError};
-use std::sync::Arc;
+use crate::{ActorSystem, Result, RustyRayError, TaskSystem};
 use once_cell::sync::OnceCell;
+use std::sync::Arc;
 
 static RUNTIME: OnceCell<Runtime> = OnceCell::new();
 
@@ -32,40 +32,46 @@ impl Runtime {
     fn init_internal() -> Result<()> {
         let actor_system = Arc::new(ActorSystem::new());
         let task_system = Arc::new(TaskSystem::new(actor_system.clone()));
-        
+
         // Register all remote functions
         init_remote_functions(&task_system);
-        
+
         let runtime = Runtime {
             actor_system,
             task_system,
         };
-        
+
         RUNTIME.set(runtime).map_err(|_| {
-            RustyRayError::Internal("Runtime already initialized".to_string())
+            RustyRayError::Internal(
+                "Runtime already initialized. Call runtime::init() only once per process"
+                    .to_string(),
+            )
         })?;
-        
+
         Ok(())
     }
-    
+
     /// Get the global runtime
     pub fn global() -> Result<&'static Runtime> {
         RUNTIME.get().ok_or_else(|| {
-            RustyRayError::Internal("Runtime not initialized".to_string())
+            RustyRayError::Internal(
+                "Runtime not initialized. Call runtime::init() first or use #[rustyray::main]"
+                    .to_string(),
+            )
         })
     }
-    
+
     /// Shutdown the global runtime
     fn shutdown_internal() -> Result<()> {
         // In the future, this will properly shutdown all systems
         Ok(())
     }
-    
+
     /// Get the task system
     pub fn task_system(&self) -> &Arc<TaskSystem> {
         &self.task_system
     }
-    
+
     /// Get the actor system
     pub fn actor_system(&self) -> &Arc<ActorSystem> {
         &self.actor_system

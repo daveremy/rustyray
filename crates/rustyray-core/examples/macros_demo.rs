@@ -17,10 +17,10 @@ async fn main() -> Result<()> {
     // Test async remote function
     let result = add_remote::remote(5, 3).await?;
     println!("Remote add result: {:?}", result.get().await?);
-    
+
     // Test sync remote function with resources
     let result = multiply_remote::remote(4, 7).await?;
     println!("Remote multiply result: {:?}", result.get().await?);
-    
+
     Ok(())
 }

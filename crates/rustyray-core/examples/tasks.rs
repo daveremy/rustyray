@@ -7,10 +7,10 @@
 //! - Integration with the actor system
 
 use async_trait::async_trait;
-use rustyray::actor::{Actor, ActorSystem};
-use rustyray::error::Result;
-use rustyray::task::{ObjectRef, TaskBuilder, TaskSystem};
-use rustyray::task_function;
+use rustyray_core::actor::{Actor, ActorSystem};
+use rustyray_core::error::Result;
+use rustyray_core::task::{ObjectRef, TaskBuilder, TaskSystem};
+use rustyray_core::task_function;
 use std::any::Any;
 use std::sync::Arc;
 
@@ -45,7 +45,7 @@ impl Actor for Coordinator {
             println!("Coordinator: Sum of squares = {}", sum);
             Ok(Box::new(sum))
         } else {
-            Err(rustyray::error::RustyRayError::InvalidMessage)
+            Err(rustyray_core::error::RustyRayError::InvalidMessage)
         }
     }
 }
@@ -67,7 +67,7 @@ async fn main() -> Result<()> {
         task_function!(|x: i32| async move {
             println!("   Task: Computing square of {}", x);
             tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-            Ok::<i32, rustyray::error::RustyRayError>(x * x)
+            Ok::<i32, rustyray_core::error::RustyRayError>(x * x)
         }),
     )?;
 
@@ -76,7 +76,7 @@ async fn main() -> Result<()> {
         "add",
         task_function!(|x: i32, y: i32| async move {
             println!("   Task: Adding {} + {}", x, y);
-            Ok::<i32, rustyray::error::RustyRayError>(x + y)
+            Ok::<i32, rustyray_core::error::RustyRayError>(x + y)
         }),
     )?;
 
@@ -85,7 +85,7 @@ async fn main() -> Result<()> {
         "multiply",
         task_function!(|x: i32, y: i32| async move {
             println!("   Task: Multiplying {} * {}", x, y);
-            Ok::<i32, rustyray::error::RustyRayError>(x * y)
+            Ok::<i32, rustyray_core::error::RustyRayError>(x * y)
         }),
     )?;
 

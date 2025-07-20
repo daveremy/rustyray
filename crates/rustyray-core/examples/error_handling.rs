@@ -5,10 +5,10 @@
 //! - Different types of errors (validation, missing functions, etc.)
 //! - How to handle errors gracefully
 
-use rustyray::actor::ActorSystem;
-use rustyray::error::{Result, RustyRayError};
-use rustyray::task::{TaskBuilder, TaskSystem};
-use rustyray::task_function;
+use rustyray_core::actor::ActorSystem;
+use rustyray_core::error::{Result, RustyRayError};
+use rustyray_core::task::{TaskBuilder, TaskSystem};
+use rustyray_core::task_function;
 use std::sync::Arc;
 
 #[tokio::main]

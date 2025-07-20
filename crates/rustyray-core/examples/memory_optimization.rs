@@ -1,9 +1,9 @@
 //! Example demonstrating memory optimization in dependency resolution
 
-use rustyray::actor::ActorSystem;
-use rustyray::error::Result;
-use rustyray::task::{TaskBuilder, TaskSystem};
-use rustyray::task_function;
+use rustyray_core::actor::ActorSystem;
+use rustyray_core::error::Result;
+use rustyray_core::task::{TaskBuilder, TaskSystem};
+use rustyray_core::task_function;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -21,7 +21,7 @@ async fn main() -> Result<()> {
         task_function!(|size: usize| async move {
             // Create a large data vector
             let data: Vec<u8> = (0..size).map(|i| (i % 256) as u8).collect();
-            Ok::<Vec<u8>, rustyray::error::RustyRayError>(data)
+            Ok::<Vec<u8>, rustyray_core::error::RustyRayError>(data)
         }),
     )?;
 
@@ -30,7 +30,7 @@ async fn main() -> Result<()> {
         task_function!(|data: Vec<u8>| async move {
             // Simulate processing
             let sum: u64 = data.iter().map(|&b| b as u64).sum();
-            Ok::<u64, rustyray::error::RustyRayError>(sum)
+            Ok::<u64, rustyray_core::error::RustyRayError>(sum)
         }),
     )?;
 

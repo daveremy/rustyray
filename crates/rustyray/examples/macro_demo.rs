@@ -35,27 +35,27 @@ fn multiply(x: i32, y: i32) -> i32 {
 #[rustyray::main]
 async fn main() -> Result<()> {
     println!("=== RustyRay Macro Demo ===\n");
-    
+
     // Simple addition
     println!("Calling add(5, 3)...");
     let result = add_remote::remote(5, 3).await?;
     println!("Result: {}\n", result.get().await?);
-    
+
     // String function
     println!("Calling hello(\"World\")...");
     let greeting = hello_remote::remote("World".to_string()).await?;
     println!("Result: {}\n", greeting.get().await?);
-    
+
     // Function with resource requirements
     println!("Calling compute_heavy(1000) with 2 CPUs...");
     let computation = compute_heavy_remote::remote(1000).await?;
     println!("Result: {}\n", computation.get().await?);
-    
+
     // Sync function
     println!("Calling multiply(7, 6) (sync function)...");
     let product = multiply_remote::remote(7, 6).await?;
     println!("Result: {}\n", product.get().await?);
-    
+
     println!("All tasks completed successfully!");
     Ok(())
 }

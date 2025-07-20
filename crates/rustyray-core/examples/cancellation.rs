@@ -1,9 +1,9 @@
 //! Example demonstrating task cancellation and timeout features
 
-use rustyray::actor::ActorSystem;
-use rustyray::error::Result;
-use rustyray::task::{TaskBuilder, TaskSystem};
-use rustyray::task_function;
+use rustyray_core::actor::ActorSystem;
+use rustyray_core::error::Result;
+use rustyray_core::task::{TaskBuilder, TaskSystem};
+use rustyray_core::task_function;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time;
@@ -28,7 +28,7 @@ async fn main() -> Result<()> {
             println!("   Fast task starting...");
             time::sleep(Duration::from_millis(100)).await;
             println!("   Fast task completed!");
-            Ok::<i32, rustyray::error::RustyRayError>(x * 2)
+            Ok::<i32, rustyray_core::error::RustyRayError>(x * 2)
         }),
     )?;
 
@@ -41,7 +41,7 @@ async fn main() -> Result<()> {
                 println!("   Slow task progress: {}/10", i);
             }
             println!("   Slow task completed!");
-            Ok::<i32, rustyray::error::RustyRayError>(x * 3)
+            Ok::<i32, rustyray_core::error::RustyRayError>(x * 3)
         }),
     )?;
 
@@ -56,7 +56,7 @@ async fn main() -> Result<()> {
                 println!("   Infinite task iteration {}", count);
             }
             #[allow(unreachable_code)]
-            Ok::<(), rustyray::error::RustyRayError>(())
+            Ok::<(), rustyray_core::error::RustyRayError>(())
         }),
     )?;
 
