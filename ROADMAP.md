@@ -115,7 +115,7 @@ Add Ray's task concept - stateless function execution with dependencies.
 
 ---
 
-## Phase 3: Macro System for API Ergonomics 🎯 (Current - 6 Weeks)
+## Phase 3: Macro System for API Ergonomics 🎯 (Current - 6 Weeks, Week 2 Complete!)
 
 Implement procedural macros to dramatically improve the developer experience. Goal: 70% reduction in boilerplate code.
 
@@ -129,20 +129,24 @@ Implement procedural macros to dramatically improve the developer experience. Go
 - [x] Result<T> return type detection and handling
 - [x] Compile-time registration with linkme
 
-### 3.2 Actor Macros (Week 2-3) 🚀 Next Focus
-- [ ] #[rustyray::actor] for actor structs with resource requirements
-- [ ] #[rustyray::actor_methods] for typed method handles
-- [ ] Eliminate Box<dyn Any> boilerplate completely
-- [ ] Generate typed ActorHandle<T> automatically
-- [ ] Support for Result<T, E> return types with custom errors
-- [ ] Constructor pattern with Actor::remote(...)
+### 3.2 Actor Macros (Week 2-3) ✅ Week 2 Complete! (Grade: A-)
+- [x] #[rustyray::actor] for actor structs with resource requirements
+- [x] #[rustyray::actor_methods] for typed method handles
+- [x] Eliminate Box<dyn Any> boilerplate completely
+- [x] Generate typed ActorHandle<T> automatically
+- [x] Support for Result<T, E> return types with custom errors
+- [x] Constructor pattern with Actor::remote(...)
+- [x] Multiple constructor support (new→remote, others→remote_name)
+- [x] Compile-time validations with clear error messages
+- [x] Enhanced runtime error messages with context
 
-### 3.3 Runtime Macros (Week 4)
-- [ ] #[rustyray::main] for global runtime initialization
-- [ ] Automatic TaskSystem/ActorSystem setup
-- [ ] Global context for task submission
-- [ ] Clean shutdown handling
-- [ ] Compile-time function registration with linkme
+### 3.3 Runtime Macros (Week 3-4) 🚀 Next Focus
+- [x] #[rustyray::main] for global runtime initialization (Week 2 bonus!)
+- [x] Automatic TaskSystem/ActorSystem setup (via runtime::init)
+- [ ] Global context improvements
+- [x] Clean shutdown handling
+- [x] Compile-time function registration with linkme (Week 1)
+- [ ] Enhanced error propagation for Results
 
 ### 3.4 Polish & Release (Week 5-6)
 - [ ] Update all examples to use macro API
