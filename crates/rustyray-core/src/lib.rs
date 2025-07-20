@@ -72,6 +72,15 @@ pub mod task;
 /// Runtime management for global state and initialization.
 pub mod runtime;
 
+/// Object store for efficient in-memory storage and sharing.
+///
+/// This module provides:
+/// - Zero-copy data sharing within a process
+/// - Type-safe object storage and retrieval
+/// - Automatic memory management with LRU eviction
+/// - Foundation for future distributed object store
+pub mod object_store;
+
 /// Prelude for common imports
 pub mod prelude;
 

@@ -8,7 +8,8 @@
 
 use crate::error::{Result, RustyRayError};
 use crate::task::cancellation::{CancellationToken, TaskTracker};
-use crate::task::{FunctionRegistry, ObjectId, TaskArg, TaskSpec};
+use crate::task::{FunctionRegistry, TaskArg, TaskSpec};
+use crate::types::ObjectId;
 use bytes::Bytes;
 use dashmap::DashMap;
 use std::sync::atomic::{AtomicBool, Ordering};

@@ -6,53 +6,19 @@
 //! extended to support distributed object stores.
 
 use crate::error::{Result, RustyRayError};
+use crate::types::ObjectId;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use crate::object_store::{InMemoryStore, ObjectStore};
 use std::fmt;
 use std::future::Future;
 use std::marker::PhantomData;
 use std::pin::Pin;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use tokio::sync::{oneshot, watch};
 
 /// Type alias for the result transported through ObjectRef channels
 type ObjectResult = Result<Vec<u8>>;
-
-/// Counter for generating unique object IDs
-static OBJECT_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
-
-/// Unique identifier for an object in the system.
-///
-/// In the distributed version, this would include node information
-/// and be globally unique across the cluster.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct ObjectId(u64);
-
-impl ObjectId {
-    /// Generate a new unique object ID
-    pub fn new() -> Self {
-        let id = OBJECT_ID_COUNTER.fetch_add(1, Ordering::SeqCst);
-        ObjectId(id)
-    }
-
-    /// Get the inner ID value
-    pub fn as_u64(&self) -> u64 {
-        self.0
-    }
-}
-
-impl fmt::Display for ObjectId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Object({})", self.0)
-    }
-}
-
-impl From<u64> for ObjectId {
-    fn from(value: u64) -> Self {
-        ObjectId(value)
-    }
-}
 
 /// Internal state for an ObjectRef that can be shared among clones
 struct ObjectRefState {
@@ -80,6 +46,9 @@ pub struct ObjectRef<T> {
     /// Shared state containing the watch receiver
     /// None for deserialized ObjectRefs (not yet implemented)
     state: Option<Arc<ObjectRefState>>,
+    
+    /// Reference to the object store (for distributed ObjectRefs)
+    store: Option<Arc<InMemoryStore>>,
 
     /// Phantom type for compile-time type safety
     _phantom: PhantomData<T>,
@@ -108,6 +77,7 @@ impl<T> ObjectRef<T> {
         let object_ref = ObjectRef {
             id,
             state: Some(state),
+            store: None,
             _phantom: PhantomData,
         };
 
@@ -122,6 +92,17 @@ impl<T> ObjectRef<T> {
         ObjectRef {
             id,
             state: None,
+            store: None,
+            _phantom: PhantomData,
+        }
+    }
+    
+    /// Create an ObjectRef with a specific object store
+    pub(crate) fn with_store(id: ObjectId, store: Arc<InMemoryStore>) -> Self {
+        ObjectRef {
+            id,
+            state: None,
+            store: Some(store),
             _phantom: PhantomData,
         }
     }
@@ -143,36 +124,46 @@ impl<T: DeserializeOwned + Send + 'static> ObjectRef<T> {
     /// This can be called multiple times on clones of the same ObjectRef.
     /// In Ray, this is equivalent to `ray.get()`.
     pub async fn get(&self) -> Result<T> {
-        // For now, we only support local execution
-        let state = self.state.as_ref().ok_or_else(|| {
-            RustyRayError::Internal(
-                "ObjectRef has no state - distributed execution not yet implemented".to_string(),
-            )
-        })?;
+        // First try local state (for locally created ObjectRefs)
+        if let Some(state) = &self.state {
+            // Clone the receiver so we can await without consuming self
+            let mut receiver = state.receiver.clone();
 
-        // Clone the receiver so we can await without consuming self
-        let mut receiver = state.receiver.clone();
+            // Wait for the value to become Some
+            receiver
+                .wait_for(|value| value.is_some())
+                .await
+                .map_err(|_| {
+                    RustyRayError::Internal(format!("ObjectRef {} watch channel closed", self.id))
+                })?;
 
-        // Wait for the value to become Some
-        receiver
-            .wait_for(|value| value.is_some())
-            .await
-            .map_err(|_| {
-                RustyRayError::Internal(format!("ObjectRef {} watch channel closed", self.id))
+            // Get the result
+            let result = receiver.borrow().clone().ok_or_else(|| {
+                RustyRayError::Internal(format!("ObjectRef {} has no result after wait", self.id))
             })?;
 
-        // Get the result
-        let result = receiver.borrow().clone().ok_or_else(|| {
-            RustyRayError::Internal(format!("ObjectRef {} has no result after wait", self.id))
-        })?;
+            // Handle the inner Result - this propagates task execution errors
+            let bytes = result?;
 
-        // Handle the inner Result - this propagates task execution errors
-        let bytes = result?;
-
-        // Deserialize the result
-        crate::task::serde_utils::deserialize(&bytes).map_err(|e| {
-            RustyRayError::Internal(format!("Failed to deserialize object result: {}", e))
-        })
+            // Deserialize the result
+            return crate::task::serde_utils::deserialize(&bytes).map_err(|e| {
+                RustyRayError::Internal(format!("Failed to deserialize object result: {}", e))
+            });
+        }
+        
+        // Try object store (for distributed ObjectRefs)
+        if let Some(store) = &self.store {
+            match store.get::<T>(self.id).await? {
+                Some(value) => Ok(value),
+                None => Err(RustyRayError::Internal(
+                    format!("Object {} not found in store", self.id)
+                )),
+            }
+        } else {
+            Err(RustyRayError::Internal(
+                "ObjectRef has no state or store - cannot retrieve value".to_string(),
+            ))
+        }
     }
 }
 
@@ -230,6 +221,7 @@ impl<T> Clone for ObjectRef<T> {
         ObjectRef {
             id: self.id,
             state: self.state.clone(), // Arc is cheap to clone
+            store: self.store.clone(), // Arc is cheap to clone
             _phantom: PhantomData,
         }
     }

@@ -16,6 +16,8 @@ once_cell.workspace = true
 bytes.workspace = true
 thiserror.workspace = true
 linkme.workspace = true
+clru.workspace = true
+num_cpus.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true

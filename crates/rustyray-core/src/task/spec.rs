@@ -5,7 +5,7 @@
 //! and actor creation tasks all use the same underlying representation.
 
 use crate::error::Result;
-use crate::task::ObjectId;
+use crate::types::ObjectId;
 use crate::types::{ActorId, TaskId};
 use serde::{Deserialize, Serialize};
 

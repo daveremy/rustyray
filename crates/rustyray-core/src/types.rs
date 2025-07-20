@@ -13,6 +13,9 @@ static ACTOR_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 /// Counter for generating unique task IDs.
 static TASK_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 
+/// Counter for generating unique object IDs.
+static OBJECT_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
+
 /// Unique identifier for an actor.
 ///
 /// In Ray, actor IDs are unique across the cluster. For now, we'll use
@@ -68,8 +71,46 @@ impl fmt::Display for TaskId {
     }
 }
 
-impl From<crate::task::ObjectId> for TaskId {
-    fn from(object_id: crate::task::ObjectId) -> Self {
+/// Unique identifier for an object in the object store.
+///
+/// Objects are immutable data that can be shared between tasks and actors.
+/// In Ray, objects are stored in the distributed object store (Plasma).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub struct ObjectId(u64);
+
+impl ObjectId {
+    /// Generate a new unique object ID.
+    pub fn new() -> Self {
+        let id = OBJECT_ID_COUNTER.fetch_add(1, Ordering::SeqCst);
+        ObjectId(id)
+    }
+
+    /// Get the inner ID value.
+    pub fn as_u64(&self) -> u64 {
+        self.0
+    }
+}
+
+impl Default for ObjectId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl fmt::Display for ObjectId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Object({})", self.0)
+    }
+}
+
+impl From<u64> for ObjectId {
+    fn from(value: u64) -> Self {
+        ObjectId(value)
+    }
+}
+
+impl From<ObjectId> for TaskId {
+    fn from(object_id: ObjectId) -> Self {
         // Use the same underlying ID value
         TaskId(object_id.as_u64())
     }

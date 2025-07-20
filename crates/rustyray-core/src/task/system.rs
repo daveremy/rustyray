@@ -5,6 +5,7 @@
 
 use crate::actor::ActorSystem;
 use crate::error::{Result, RustyRayError};
+use crate::object_store::{InMemoryStore, ObjectStore, StoreConfig};
 #[cfg(test)]
 use crate::task::TaskManagerConfig;
 use crate::task::{FunctionId, FunctionRegistry, ObjectRef, TaskArg, TaskManager, TaskSpec};
@@ -47,6 +48,9 @@ pub struct TaskSystem {
     /// Reference to the actor system for integration
     #[allow(dead_code)]
     actor_system: Arc<ActorSystem>,
+    
+    /// Object store for sharing data between tasks
+    object_store: Arc<InMemoryStore>,
 
     /// Shutdown state
     shutdown_state: Arc<AtomicU8>,
@@ -57,11 +61,13 @@ impl TaskSystem {
     pub fn new(actor_system: Arc<ActorSystem>) -> Self {
         let registry = Arc::new(FunctionRegistry::new());
         let task_manager = Arc::new(TaskManager::new(registry.clone()));
+        let object_store = Arc::new(InMemoryStore::new(StoreConfig::default()));
 
         TaskSystem {
             registry,
             task_manager,
             actor_system,
+            object_store,
             shutdown_state: Arc::new(AtomicU8::new(ShutdownState::Running as u8)),
         }
     }
@@ -70,11 +76,13 @@ impl TaskSystem {
     pub fn with_timeout(actor_system: Arc<ActorSystem>, timeout: Duration) -> Self {
         let registry = Arc::new(FunctionRegistry::new());
         let task_manager = Arc::new(TaskManager::with_timeout(registry.clone(), timeout));
+        let object_store = Arc::new(InMemoryStore::new(StoreConfig::default()));
 
         TaskSystem {
             registry,
             task_manager,
             actor_system,
+            object_store,
             shutdown_state: Arc::new(AtomicU8::new(ShutdownState::Running as u8)),
         }
     }
@@ -87,11 +95,13 @@ impl TaskSystem {
             registry.clone(),
             TaskManagerConfig::for_tests(),
         ));
+        let object_store = Arc::new(InMemoryStore::new(StoreConfig::default()));
 
         TaskSystem {
             registry,
             task_manager,
             actor_system,
+            object_store,
             shutdown_state: Arc::new(AtomicU8::new(ShutdownState::Running as u8)),
         }
     }
@@ -150,21 +160,21 @@ impl TaskSystem {
     where
         T: Serialize + DeserializeOwned + Send + 'static,
     {
-        // Serialize the value
+        // Serialize the value for backward compatibility with task manager
         let bytes = crate::task::serde_utils::serialize(&value)
             .map_err(|e| RustyRayError::Internal(format!("Failed to serialize object: {}", e)))?;
-
-        // Create ObjectRef
-        let (object_ref, result_tx) = ObjectRef::new();
-        let id = object_ref.id();
-
-        // Store in object store (via task manager for now)
+        
+        // Store in object store
+        let result = self.object_store.put(value).await?;
+        
+        // Create ObjectRef with store reference
+        let object_ref = ObjectRef::with_store(result.id, self.object_store.clone());
+        
+        // Also notify task manager for backward compatibility
+        // The task manager needs the bytes for resolving dependencies
         self.task_manager
-            .notify_object_ready(id, bytes.clone())
+            .notify_object_ready(result.id, bytes)
             .await?;
-
-        // Send to result channel too so ObjectRef::get() works
-        let _ = result_tx.send(Ok(bytes));
 
         Ok(object_ref)
     }
