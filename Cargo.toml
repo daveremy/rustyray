@@ -3,7 +3,7 @@ members = ["crates/*"]
 resolver = "2"
 
 [workspace.package]
-version = "0.3.0-dev"
+version = "0.4.0"
 edition = "2021"
 authors = ["RustyRay Contributors"]
 license = "MIT OR Apache-2.0"
@@ -32,8 +32,8 @@ linkme = "0.3"
 darling = "0.20"
 
 # Internal dependencies
-rustyray-core = { version = "0.3.0-dev", path = "crates/rustyray-core" }
-rustyray-macros = { version = "0.3.0-dev", path = "crates/rustyray-macros" }
+rustyray-core = { version = "0.4.0", path = "crates/rustyray-core" }
+rustyray-macros = { version = "0.4.0", path = "crates/rustyray-macros" }
 
 # Dev dependencies
 trybuild = "1.0"
