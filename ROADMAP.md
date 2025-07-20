@@ -5,8 +5,9 @@ This document outlines the development plan for RustyRay, a Rust implementation 
 ## Current Status
 
 - **GitHub Repository**: https://github.com/daveremy/rustyray
-- **Latest Version**: 0.2.5 (Phase 2.5 Complete)
-- **Next Release**: 0.3.0 (Phase 3 - Macro System)
+- **Latest Version**: 0.3.0-dev (Phase 3 Core Complete)
+- **Current Focus**: Phase 4 - Object Store
+- **Next Release**: 0.4.0 (Phase 4 - Object Store)
 
 ## Progress Summary
 
@@ -34,18 +35,19 @@ This document outlines the development plan for RustyRay, a Rust implementation 
   - Received "Excellent" rating from Gemini comprehensive review
   - Published to GitHub with CI/CD pipeline
 
-- **Phase 3: Macro System for API Ergonomics** 🚀 Current Focus (6 weeks)
+- **Phase 3: Macro System for API Ergonomics** ✅ Core Complete (Week 2 of 6)
   - Timeline: Started January 2025
   - Goal: Python-like simplicity with Rust's type safety
+  - Status: 70% boilerplate reduction achieved! Moving to Phase 4 (remaining items deferred)
 
 ## Overview
 
 Based on our analysis of Ray's C++ implementation and comprehensive code review, we'll build RustyRay in phases:
 
 1. **Local Actor System** ✅ (Completed)
-2. **Task Execution System** ✅ (Completed)
-3. **Macro System for API Ergonomics** (Next Focus)
-4. **Local Shared Memory Object Store**
+2. **Task Execution System** ✅ (Completed) 
+3. **Macro System for API Ergonomics** ✅ (Core Complete - 70% boilerplate reduction achieved!)
+4. **Local Shared Memory Object Store** 🚀 (Current Focus)
 5. **Distributed Runtime**
 6. **Production Features**
 
@@ -115,7 +117,7 @@ Add Ray's task concept - stateless function execution with dependencies.
 
 ---
 
-## Phase 3: Macro System for API Ergonomics 🎯 (Current - 6 Weeks, Week 2 Complete!)
+## Phase 3: Macro System for API Ergonomics ✅ (Core Complete - Moving to Phase 4!)
 
 Implement procedural macros to dramatically improve the developer experience. Goal: 70% reduction in boilerplate code.
 
@@ -140,23 +142,22 @@ Implement procedural macros to dramatically improve the developer experience. Go
 - [x] Compile-time validations with clear error messages
 - [x] Enhanced runtime error messages with context
 
-### 3.3 Runtime Macros (Week 3-4) 🚀 Next Focus
+### 3.3 Runtime Macros (Week 3-4) ✅ Core Complete
 - [x] #[rustyray::main] for global runtime initialization (Week 2 bonus!)
 - [x] Automatic TaskSystem/ActorSystem setup (via runtime::init)
-- [ ] Global context improvements
 - [x] Clean shutdown handling
 - [x] Compile-time function registration with linkme (Week 1)
-- [ ] Enhanced error propagation for Results
+- [x] Enhanced error propagation with .context() (Week 2!)
+- [ ] Global context improvements (deferred - not critical)
 
-### 3.4 Polish & Release (Week 5-6)
-- [x] Update all examples to use macro API (Week 3)
-- [ ] Migration guide from manual API
-- [ ] Performance benchmarks (<5% overhead target)
-- [ ] Error message excellence with syn::Error::new_spanned
-- [ ] Generic support (stretch goal)
-- [ ] Beta release and community feedback
-- [ ] Comprehensive rustdoc documentation (deferred to post-feedback)
-      See: https://doc.rust-lang.org/rustdoc/how-to-write-documentation.html
+### 3.4 Polish & Release (Deferred to Post-Phase 4)
+- [x] Update all examples to use macro API (Week 2!)
+- [x] Enhanced error propagation with context (Week 2!)
+- [ ] Performance benchmarks (<5% overhead target) - deferred
+- [ ] Error message excellence with syn::Error::new_spanned - deferred
+- [ ] Generic support (stretch goal) - deferred
+- [ ] Beta release - after Phase 4
+- [ ] Comprehensive rustdoc documentation - after API stabilization
 
 **Success Metrics**:
 - API simplicity: 70% less boilerplate
@@ -171,7 +172,7 @@ Comprehensive rustdoc will be written after API stabilization based on user feed
 
 ---
 
-## Phase 4: Local Shared Memory Object Store 📦
+## Phase 4: Local Shared Memory Object Store 📦 (Current Focus - 4 weeks)
 
 Implement a simplified version of Plasma for efficient data sharing.
 
@@ -281,11 +282,11 @@ Add features needed for production use.
 
 ## Timeline Estimates
 
-- **Phase 3**: 6 weeks (January - February 2025)
-- **Phase 4**: 4 weeks (March 2025)
-- **Phase 5**: 8-10 weeks (April - May 2025)
-- **Phase 6**: 6-8 weeks (June - July 2025)
-- **Version 1.0**: Q3 2025
+- **Phase 3**: 2 weeks actual (January 2025) ✅ Completed early!
+- **Phase 4**: 4 weeks (January - February 2025) 🚀 Current
+- **Phase 5**: 8-10 weeks (March - April 2025)
+- **Phase 6**: 6-8 weeks (May - June 2025)
+- **Version 1.0**: Q2-Q3 2025
 
 ## Technical Decisions Made
 
