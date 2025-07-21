@@ -5,10 +5,12 @@
 
 use crate::actor::ActorSystem;
 use crate::error::{Result, RustyRayError};
+use crate::object_ref::ObjectRef;
 use crate::object_store::{InMemoryStore, ObjectStore, StoreConfig};
 #[cfg(test)]
 use crate::task::TaskManagerConfig;
-use crate::task::{FunctionId, FunctionRegistry, ObjectRef, TaskArg, TaskManager, TaskSpec};
+use crate::task::{FunctionId, FunctionRegistry, TaskArg, TaskManager, TaskSpec};
+use crate::types::ObjectId;
 use serde::{de::DeserializeOwned, Serialize};
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
@@ -48,7 +50,7 @@ pub struct TaskSystem {
     /// Reference to the actor system for integration
     #[allow(dead_code)]
     actor_system: Arc<ActorSystem>,
-    
+
     /// Object store for sharing data between tasks
     object_store: Arc<InMemoryStore>,
 
@@ -77,6 +79,20 @@ impl TaskSystem {
         let registry = Arc::new(FunctionRegistry::new());
         let task_manager = Arc::new(TaskManager::with_timeout(registry.clone(), timeout));
         let object_store = Arc::new(InMemoryStore::new(StoreConfig::default()));
+
+        TaskSystem {
+            registry,
+            task_manager,
+            actor_system,
+            object_store,
+            shutdown_state: Arc::new(AtomicU8::new(ShutdownState::Running as u8)),
+        }
+    }
+
+    /// Create a new task system with a shared object store
+    pub fn with_store(actor_system: Arc<ActorSystem>, object_store: Arc<InMemoryStore>) -> Self {
+        let registry = Arc::new(FunctionRegistry::new());
+        let task_manager = Arc::new(TaskManager::new(registry.clone()));
 
         TaskSystem {
             registry,
@@ -123,16 +139,47 @@ impl TaskSystem {
             ));
         }
 
-        // Create ObjectRef with channel
-        let (object_ref, result_tx) = ObjectRef::new();
+        // Create a channel for the result
+        let (result_tx, result_rx) = tokio::sync::oneshot::channel();
 
-        // Store the mapping from task_id to object_id
-        // This is needed so we can notify the right object when the task completes
-        let object_id = object_ref.id();
+        // Generate object ID for the result
+        let object_id = ObjectId::new();
         spec.task_id = crate::types::TaskId::from(object_id);
 
         // Queue task for execution
         self.task_manager.queue_task(spec, result_tx).await?;
+
+        // Create ObjectRef backed by store
+        let object_ref = ObjectRef::new(object_id, self.object_store.clone());
+
+        // Spawn a task to store the result when it's ready
+        let store = self.object_store.clone();
+        tokio::spawn(async move {
+            if let Ok(result) = result_rx.await {
+                // Store both successful results and errors
+                // We wrap the Result<Vec<u8>> to preserve error information
+                let wrapped_result = match result {
+                    Ok(bytes) => {
+                        // Successful result - store the raw bytes
+                        bytes
+                    }
+                    Err(e) => {
+                        // Error result - serialize the error as a special error marker
+                        // We'll use a simple encoding: prefix with error marker + error message
+                        let error_marker = b"__RUSTYRAY_ERROR__";
+                        let error_msg = e.to_string().into_bytes();
+                        let mut error_bytes =
+                            Vec::with_capacity(error_marker.len() + error_msg.len());
+                        error_bytes.extend_from_slice(error_marker);
+                        error_bytes.extend_from_slice(&error_msg);
+                        error_bytes
+                    }
+                };
+
+                // Store the result (success or error) in the object store
+                let _ = store.put_with_id(object_id, wrapped_result).await;
+            }
+        });
 
         Ok(object_ref)
     }
@@ -163,13 +210,13 @@ impl TaskSystem {
         // Serialize the value for backward compatibility with task manager
         let bytes = crate::task::serde_utils::serialize(&value)
             .map_err(|e| RustyRayError::Internal(format!("Failed to serialize object: {}", e)))?;
-        
+
         // Store in object store
         let result = self.object_store.put(value).await?;
-        
+
         // Create ObjectRef with store reference
-        let object_ref = ObjectRef::with_store(result.id, self.object_store.clone());
-        
+        let object_ref = ObjectRef::new(result.id, self.object_store.clone());
+
         // Also notify task manager for backward compatibility
         // The task manager needs the bytes for resolving dependencies
         self.task_manager

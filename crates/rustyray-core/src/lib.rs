@@ -81,21 +81,37 @@ pub mod runtime;
 /// - Foundation for future distributed object store
 pub mod object_store;
 
+/// ObjectRef - universal references to objects in the store.
+///
+/// ObjectRefs are Ray's key innovation for async dataflow. They act as
+/// type-safe futures that can be passed between tasks and actors to build
+/// dependency graphs.
+pub mod object_ref;
+
+/// Ray-style global API for object storage and retrieval.
+///
+/// This module provides the familiar `ray.put()` and `ray.get()` functions
+/// for interacting with the object store, matching Python Ray's API.
+pub mod ray;
+
 /// Prelude for common imports
 pub mod prelude;
-
-// Test modules
-mod tests;
 
 // Test utilities
 #[cfg(test)]
 pub mod test_utils;
 
+// Test modules
+#[cfg(test)]
+mod tests;
+
+
 // Re-exports for convenience
 pub use actor::{Actor, ActorRef, ActorSystem};
 pub use error::{Result, RustyRayError};
+pub use object_ref::ObjectRef;
 pub use runtime::{RemoteFunctionRegistration, REMOTE_FUNCTIONS};
-pub use task::{ObjectRef, TaskBuilder, TaskSystem};
+pub use task::{TaskBuilder, TaskSystem};
 
 // Future modules (commented out until we need them):
 // pub mod object;    // Object store for data sharing

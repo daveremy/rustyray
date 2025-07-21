@@ -5,7 +5,8 @@
 mod tests {
     use crate::actor::ActorSystem;
     use crate::error::Result;
-    use crate::task::{ObjectRef, TaskBuilder, TaskSystem};
+    use crate::object_ref::ObjectRef;
+    use crate::task::{TaskBuilder, TaskSystem};
     use crate::task_function;
     use std::sync::Arc;
 

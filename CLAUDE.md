@@ -114,10 +114,17 @@ Use the `@` syntax to include files and directories in your Gemini prompts. You'
 git clone https://github.com/ray-project/ray.git ~/code/ray
 ```
 
+**Loading Gemini API Key:**
+The GEMINI_API_KEY is stored in the `.env` file in the project root. To use it:
+```bash
+# Load the API key from .env before calling gemini
+export $(cat .env | grep GEMINI_API_KEY) && gemini -p "your prompt here"
+```
+
 **Examples:**
 ```bash
-# Analyze Ray's actor system
-gemini -p "@~/code/ray/src/ray/core_worker/ How does Ray implement the actor system?"
+# Analyze Ray's actor system (with API key)
+export $(cat .env | grep GEMINI_API_KEY) && gemini -p "@~/code/ray/src/ray/core_worker/ How does Ray implement the actor system?"
 
 # Understand Ray's protobuf definitions
 gemini -p "@~/code/ray/src/ray/protobuf/ What are the key protocol buffer messages?"

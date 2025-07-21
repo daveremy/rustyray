@@ -36,7 +36,6 @@ use std::pin::Pin;
 
 mod cancellation;
 mod manager;
-mod object_ref;
 mod registry;
 pub(crate) mod serde_utils;
 mod spec;
@@ -48,7 +47,6 @@ mod test_objectref_args;
 mod test_objectref_sharing;
 
 pub use manager::{TaskManager, TaskManagerConfig};
-pub use object_ref::ObjectRef;
 pub use registry::{FunctionId, FunctionRegistry};
 pub use spec::{TaskArg, TaskSpec, TaskType};
 pub use system::{TaskBuilder, TaskSystem};

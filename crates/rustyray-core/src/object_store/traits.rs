@@ -101,4 +101,3 @@ impl ObjectBuilder {
         unimplemented!("Create/Seal pattern will be implemented in a future phase")
     }
 }
-

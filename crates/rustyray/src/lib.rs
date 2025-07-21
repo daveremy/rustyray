@@ -19,9 +19,10 @@ pub mod prelude {
         error::{Result, RustyRayError},
 
         main,
+        object_ref::ObjectRef,
         // Macros
         remote,
-        task::{ObjectRef, TaskBuilder, TaskSystem},
+        task::{TaskBuilder, TaskSystem},
     };
 
     pub use async_trait::async_trait;

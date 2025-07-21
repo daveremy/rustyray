@@ -1,5 +1,6 @@
 //! Global runtime management for RustyRay
 
+use crate::object_store::{InMemoryStore, StoreConfig};
 use crate::{ActorSystem, Result, RustyRayError, TaskSystem};
 use once_cell::sync::OnceCell;
 use std::sync::Arc;
@@ -10,6 +11,7 @@ static RUNTIME: OnceCell<Runtime> = OnceCell::new();
 pub struct Runtime {
     actor_system: Arc<ActorSystem>,
     task_system: Arc<TaskSystem>,
+    object_store: Arc<InMemoryStore>,
 }
 
 /// Initialize the global runtime
@@ -30,8 +32,14 @@ pub fn shutdown() -> Result<()> {
 impl Runtime {
     /// Initialize the global runtime
     fn init_internal() -> Result<()> {
+        // Create shared object store with default config
+        let object_store = Arc::new(InMemoryStore::new(StoreConfig::default()));
+
         let actor_system = Arc::new(ActorSystem::new());
-        let task_system = Arc::new(TaskSystem::new(actor_system.clone()));
+        let task_system = Arc::new(TaskSystem::with_store(
+            actor_system.clone(),
+            object_store.clone(),
+        ));
 
         // Register all remote functions
         init_remote_functions(&task_system);
@@ -39,6 +47,7 @@ impl Runtime {
         let runtime = Runtime {
             actor_system,
             task_system,
+            object_store,
         };
 
         RUNTIME.set(runtime).map_err(|_| {
@@ -75,6 +84,11 @@ impl Runtime {
     /// Get the actor system
     pub fn actor_system(&self) -> &Arc<ActorSystem> {
         &self.actor_system
+    }
+
+    /// Get the object store
+    pub fn object_store(&self) -> &Arc<InMemoryStore> {
+        &self.object_store
     }
 }
 

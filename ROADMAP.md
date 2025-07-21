@@ -5,9 +5,9 @@ This document outlines the development plan for RustyRay, a Rust implementation 
 ## Current Status
 
 - **GitHub Repository**: https://github.com/daveremy/rustyray
-- **Latest Version**: 0.4.0 (Phase 4 Complete)
-- **Current Focus**: Phase 4.5 - Actor-Object Store Integration
-- **Next Release**: 0.4.5 (Integration Release)
+- **Latest Version**: 0.4.5 (Phase 4.5 Complete)
+- **Current Focus**: Phase 5 - Reference Counting & Memory Management
+- **Next Release**: 0.5.0 (Reference Counting)
 
 ## Progress Summary
 
@@ -48,6 +48,15 @@ This document outlines the development plan for RustyRay, a Rust implementation 
   - Fixed all critical issues from Gemini review (Grade: A)
   - Ready for integration with actor system
 
+- **Phase 4.5: Actor-Object Store Integration** ✅ Completed (v0.4.5)
+  - Moved ObjectRef to core level (universal, not task-specific)
+  - Implemented shared object store in Runtime
+  - Fixed error propagation (errors stored in object store)
+  - Created ray module with put/get API
+  - Added actor examples using object store
+  - All 60 tests passing (fixed 4 failing tests)
+  - Comprehensive Ray comparison analysis completed
+
 ## Overview
 
 Based on our analysis of Ray's C++ implementation and comprehensive code review, we'll build RustyRay in phases:
@@ -55,9 +64,13 @@ Based on our analysis of Ray's C++ implementation and comprehensive code review,
 1. **Local Actor System** ✅ (Completed)
 2. **Task Execution System** ✅ (Completed) 
 3. **Macro System for API Ergonomics** ✅ (Core Complete - 70% boilerplate reduction achieved!)
-4. **Local Shared Memory Object Store** 🚀 (Current Focus)
-5. **Distributed Runtime**
-6. **Production Features**
+4. **Local Shared Memory Object Store** ✅ (Completed)
+4.5. **Actor-Object Store Integration** ✅ (Completed)
+5. **Reference Counting & Memory Management** 🚀 (Current Focus)
+6. **Metadata & Error Enhancement**
+7. **Performance Optimizations**
+8. **Distributed Foundation**
+9. **Production Features**
 
 ---
 
@@ -222,67 +235,233 @@ Implemented a production-ready object store inspired by Ray's Plasma store.
 
 ---
 
-## Phase 5: Distributed Runtime 🌐
+## Phase 4.5: Actor-Object Store Integration ✅ (Completed)
 
-Transform RustyRay into a true distributed system.
+Successfully bridged the gap between actors, tasks, and the object store for seamless data sharing.
 
-### 5.1 Networking Layer
-- [ ] gRPC service definitions (using tonic)
-- [ ] Node discovery and registration
-- [ ] Heartbeat and failure detection
-- [ ] Message routing between nodes
+### 4.5.1 Shared Object Store ✅
+- [x] Add object_store to Runtime as shared instance
+- [x] Update TaskSystem to use external store
+- [x] Remove local channel mode from ObjectRef
+- [x] Ensure all ObjectRefs are store-backed
 
-### 5.2 Global Control Store (GCS)
-- [ ] Actor registry (global actor table)
-- [ ] Node information table
-- [ ] Object location table
-- [ ] Distributed metadata management
+### 4.5.2 Architectural Refactoring ✅
+- [x] Moved ObjectRef from task module to core level
+- [x] Simplified ObjectRef to always be store-backed
+- [x] Fixed type storage issue with type-erased approach
+- [x] Task results automatically stored via put_with_id
 
-### 5.3 Distributed Actors
-- [ ] Remote actor creation
-- [ ] Cross-node message passing
-- [ ] Actor migration (stretch goal)
-- [ ] Location transparency
+### 4.5.3 Unified API ✅
+- [x] Created ray module with global put/get functions
+- [x] Implemented batch operations (put_batch/get_batch)
+- [x] Added wait() for synchronization
+- [x] Maintained type safety throughout
 
-### 5.4 Distributed Tasks
-- [ ] Task scheduling across nodes
-- [ ] Load balancing
-- [ ] Data locality awareness
-- [ ] Distributed dependency resolution
+### 4.5.4 Error Handling Enhancement ✅
+- [x] Fixed error propagation through ObjectRef
+- [x] Errors stored in object store with special markers
+- [x] All 60 tests passing (fixed 4 failing tests)
 
-**Deliverable**: Multi-node RustyRay cluster
+### 4.5.5 Examples & Testing ✅
+- [x] Updated object_store_demo.rs with ray API
+- [x] Created actor_object_sharing.rs example
+- [x] Added comprehensive integration tests
+- [x] Documented new architecture
+
+**Key Achievement**: Universal ObjectRef with seamless actor-task data sharing
+**Deliverable**: Unified object store accessible from both actors and tasks ✅
 
 ---
 
-## Phase 6: Production Features 🏭
+## Phase 5: Reference Counting & Memory Management 🧮 (Current Focus)
 
-Add features needed for production use.
+Implement distributed reference counting to enable safe memory management and prevent premature object eviction.
 
-### 6.1 Fault Tolerance
+### 5.1 Local Reference Counting
+- [ ] Add reference counting to ObjectRef lifecycle (new/drop)
+- [ ] Implement atomic reference counters in object store
+- [ ] Track local references within a worker
+- [ ] Update ObjectRef Clone to increment count
+
+### 5.2 Task Reference Tracking
+- [ ] Track ObjectRefs passed to tasks
+- [ ] Increment count when task submitted
+- [ ] Decrement when task completes
+- [ ] Handle task failure cases
+
+### 5.3 Eviction Safety
+- [ ] Modify LRU eviction to check reference counts
+- [ ] Only evict objects with zero references
+- [ ] Add eviction callbacks for cleanup
+- [ ] Implement memory pressure handling
+
+### 5.4 Metrics & Debugging
+- [ ] Add reference count to object store statistics
+- [ ] Debug logging for reference count changes
+- [ ] Memory leak detection tools
+- [ ] Performance impact benchmarks
+
+### 5.5 Documentation
+- [ ] API documentation for reference counting behavior
+- [ ] Migration guide for existing code
+- [ ] Best practices for avoiding leaks
+
+**Deliverable**: Safe automatic memory management with reference counting
+
+---
+
+## Phase 6: Metadata & Error Enhancement 📋
+
+Enhance object metadata and error handling to match Ray's production capabilities.
+
+### 6.1 Structured Metadata
+- [ ] Separate data and metadata buffers in RayObject
+- [ ] Add serialization format tracking
+- [ ] Include original type information
+- [ ] Support for cross-language metadata
+
+### 6.2 Comprehensive Error Types
+- [ ] Create RayErrorType enum matching Ray's 13 types
+- [ ] Implement error objects with proper metadata
+- [ ] Add stack trace capture for errors
+- [ ] Improve error messages with context
+
+### 6.3 Object Metadata
+- [ ] Track object creation time
+- [ ] Add object size metadata
+- [ ] Include task/actor origin information
+- [ ] Support nested object references
+
+### 6.4 Testing & Migration
+- [ ] Update all error handling code
+- [ ] Migrate from string errors to typed errors
+- [ ] Add error propagation tests
+- [ ] Document error handling patterns
+
+### 6.5 Deferred Phase 3 Items
+- [ ] Performance benchmarks for macro overhead (<5% target)
+- [ ] Enhanced error messages with syn::Error::new_spanned
+- [ ] Generic support for remote functions
+- [ ] Comprehensive rustdoc documentation
+
+### 6.6 API Documentation
+- [ ] Document metadata format and usage
+- [ ] Error handling best practices
+- [ ] Migration guide from Phase 4.5
+
+**Deliverable**: Production-quality metadata and error handling
+
+---
+
+## Phase 7: Performance Optimizations ⚡
+
+Implement key performance optimizations identified from Ray's architecture.
+
+### 7.1 Size-Based Object Routing
+- [ ] Implement threshold-based routing (100KB default)
+- [ ] Inline storage for small objects
+- [ ] Direct transport for medium objects
+- [ ] Shared memory preparation for large objects
+
+### 7.2 Zero-Copy Optimizations
+- [ ] Implement zero-copy serialization where possible
+- [ ] Use memory mapping for large objects
+- [ ] Optimize actor-to-actor communication
+- [ ] Reduce unnecessary copies in hot paths
+
+### 7.3 Batch Operations
+- [ ] Optimize batch put/get operations
+- [ ] Implement vectorized operations
+- [ ] Reduce lock contention for batch ops
+- [ ] Pipeline network operations
+
+### 7.4 Benchmarking Suite
+- [ ] Create comprehensive benchmarks
+- [ ] Compare with Ray performance
+- [ ] Identify bottlenecks
+- [ ] Track performance regressions
+
+### 7.5 Early Performance Baseline
+- [ ] Basic benchmark suite for Phases 5-6 changes
+- [ ] Memory allocation profiling
+- [ ] Lock contention analysis
+- [ ] CI integration for regression detection
+
+### 7.6 Configuration Management
+- [ ] Design configuration system for memory limits
+- [ ] Worker pool configuration
+- [ ] Network settings for future phases
+- [ ] Environment variable support
+
+**Deliverable**: 10x performance improvement for common operations
+
+---
+
+## Phase 8: Distributed Foundation 🌐
+
+Prepare RustyRay for distributed operation by implementing core distributed systems primitives.
+
+### 8.1 Node Management
+- [ ] Node ID generation and tracking
+- [ ] Heartbeat mechanism
+- [ ] Failure detection
+- [ ] Node state management
+
+### 8.2 Object Location Service
+- [ ] Track object locations across nodes
+- [ ] Implement object directory
+- [ ] Support object migration
+- [ ] Location-aware routing
+
+### 8.3 Network Transport
+- [ ] gRPC service definitions
+- [ ] Efficient serialization for network
+- [ ] Connection pooling
+- [ ] Backpressure handling
+
+### 8.4 Distributed Primitives
+- [ ] Distributed reference counting protocol
+- [ ] Cross-node object transfer
+- [ ] Eventual consistency guarantees
+- [ ] Basic fault tolerance
+
+**Deliverable**: Foundation for multi-node operation
+
+---
+
+## Phase 9: Production Features 🏭
+
+Complete RustyRay with production-ready features and polish.
+
+### 9.1 Fault Tolerance
 - [ ] Actor supervision trees
-- [ ] Automatic actor restart
+- [ ] Automatic actor restart with backoff
 - [ ] Task retry mechanisms
 - [ ] Cluster recovery from node failures
+- [ ] Lineage-based reconstruction
 
-### 6.2 Performance
-- [ ] Performance benchmarks
-- [ ] Optimization pass
-- [ ] Profiling and metrics
-- [ ] Resource management
-
-### 6.3 Observability
-- [ ] Distributed tracing
-- [ ] Metrics collection
-- [ ] Logging framework
-- [ ] Dashboard (stretch goal)
-
-### 6.4 Advanced Features
+### 9.2 Advanced Features
 - [ ] Actor scheduling policies
 - [ ] Resource requirements/constraints
 - [ ] Streaming/generator tasks
-- [ ] GPU support (stretch goal)
+- [ ] GPU support
+- [ ] Autoscaling support
 
-**Deliverable**: Production-ready RustyRay
+### 9.3 Observability
+- [ ] Distributed tracing (OpenTelemetry)
+- [ ] Metrics collection (Prometheus)
+- [ ] Structured logging
+- [ ] Dashboard and monitoring tools
+- [ ] Performance profiling
+
+### 9.4 Production Hardening
+- [ ] Security features (TLS, auth)
+- [ ] Rate limiting and quotas
+- [ ] Multi-tenancy support
+- [ ] Deployment tools and documentation
+- [ ] Kubernetes integration
+
+**Deliverable**: Production-ready distributed computing framework
 
 ---
 
@@ -299,33 +478,49 @@ Add features needed for production use.
 - **Phase 1**: Can create actors and send messages ✅
 - **Phase 2**: Can execute tasks with dependencies ✅
 - **Phase 2.5**: All code review issues addressed, "Excellent" rating achieved ✅
-- **Phase 3**: API as simple as Ray's Python API (70% less boilerplate)
-- **Phase 4**: Can share large objects efficiently (<10ms latency)
-- **Phase 5**: Can run actors across multiple nodes (linear scalability)
-- **Phase 6**: Comparable performance to Ray for basic operations
+- **Phase 3**: API as simple as Ray's Python API (70% less boilerplate) ✅
+- **Phase 4**: Can share large objects efficiently (<10ms latency) ✅
+- **Phase 4.5**: Unified object store with actor-task sharing ✅
+- **Phase 5**: No memory leaks, safe automatic eviction
+- **Phase 6**: Rich error types and metadata support
+- **Phase 7**: 10x performance improvement on benchmarks
+- **Phase 8**: Can transfer objects between nodes
+- **Phase 9**: Production-ready with <1% failure rate
 
 ## Timeline Estimates
 
-- **Phase 3**: 2 weeks actual (January 2025) ✅ Completed early!
-- **Phase 4**: 4 weeks (January - February 2025) 🚀 Current
-- **Phase 5**: 8-10 weeks (March - April 2025)
-- **Phase 6**: 6-8 weeks (May - June 2025)
-- **Version 1.0**: Q2-Q3 2025
+- **Phase 3**: 2 weeks (January 2025) ✅ Completed
+- **Phase 4**: 2 weeks (January 2025) ✅ Completed  
+- **Phase 4.5**: 1 week (February 2025) ✅ Completed
+- **Phase 5**: 1 week (February 2025) 🚀 Current - Reference Counting
+- **Phase 6**: 1 week (February 2025) - Metadata Enhancement
+- **Phase 7**: 2 weeks (February 2025) - Performance
+- **Phase 8**: 3 weeks (March 2025) - Distributed Foundation
+- **Phase 9**: 4 weeks (March-April 2025) - Production Features
+- **Version 1.0**: Q2 2025
 
 ## Technical Decisions Made
 
-1. **Serialization**: Using serde for now, evaluate protocol compatibility in Phase 5
+1. **Serialization**: Using bincode for efficiency, Arrow for future cross-language
 2. **Async Runtime**: Committed to tokio for ecosystem compatibility
-3. **Memory Model**: Start with HashMap, add shared memory in Phase 4
-4. **Error Handling**: Using thiserror for type-safe errors
+3. **Memory Model**: CLRU for strict memory limits, shared memory planned
+4. **Error Handling**: Simple strings now, typed errors in Phase 6
 5. **Testing**: Comprehensive unit and integration tests with CI/CD
+6. **ObjectRef**: Universal type at core level, not task-specific
+7. **Object Store**: Single shared instance in Runtime
+8. **Type Safety**: Type parameter T in ObjectRef, runtime checking in store
+9. **Error Storage**: Errors stored in object store with special markers
+10. **API Design**: Ray-compatible put/get with Rust type safety
 
 ## Open Questions
 
-1. **Protocol Compatibility**: Should we aim for Ray protocol compatibility in Phase 5?
-2. **Language Bindings**: Python bindings for RustyRay (Phase 6+)?
-3. **Cluster Management**: Use existing solutions or build custom?
-4. **GPU Support**: Priority and approach for GPU resource management?
+1. **Reference Counting**: Owner-based (like Ray) or fully distributed?
+2. **Shared Memory**: When to add Plasma-style shared memory store?
+3. **Cross-Language**: Priority for Python interop via Arrow?
+4. **Error Compatibility**: Match Ray's error types exactly or innovate?
+5. **Performance Target**: Match Ray or leverage Rust for better performance?
+6. **Protocol Compatibility**: Binary compatible with Ray or Rust-native?
+7. **Cluster Management**: Kubernetes-native or custom orchestration?
 
 ## Converting to GitHub Issues
 

@@ -13,19 +13,19 @@ pub use crate::types::ObjectId;
 pub struct ObjectMetadata {
     /// Size of the object in bytes.
     pub size: usize,
-    
+
     /// When the object was created.
     pub created_at: Instant,
-    
+
     /// Reference count (managed by CLRU, but we track for stats).
     pub ref_count: Arc<AtomicUsize>,
-    
+
     /// Type information for runtime type checking.
     pub type_id: std::any::TypeId,
-    
+
     /// Type name for debugging.
     pub type_name: String,
-    
+
     /// Whether this object is pinned (cannot be evicted).
     pub is_pinned: Arc<AtomicBool>,
 }
@@ -35,7 +35,7 @@ pub struct ObjectMetadata {
 pub struct PutResult {
     /// The ID assigned to the stored object.
     pub id: ObjectId,
-    
+
     /// Size of the stored object in bytes.
     pub size: usize,
 }
@@ -45,10 +45,10 @@ pub struct PutResult {
 pub struct StoreConfig {
     /// Maximum memory usage in bytes.
     pub max_memory: usize,
-    
+
     /// Eviction policy to use when memory is full.
     pub eviction_policy: EvictionPolicy,
-    
+
     /// Whether to collect detailed statistics.
     pub enable_stats: bool,
 }
@@ -79,28 +79,28 @@ pub enum EvictionPolicy {
 pub struct StoreStats {
     /// Total number of objects in the store.
     pub total_objects: usize,
-    
+
     /// Total size of all objects in bytes.
     pub total_size: usize,
-    
+
     /// Number of successful get operations.
     pub hit_count: u64,
-    
+
     /// Number of failed get operations.
     pub miss_count: u64,
-    
+
     /// Number of objects evicted.
     pub eviction_count: u64,
-    
+
     /// Number of put operations.
     pub put_count: u64,
-    
+
     /// Number of get operations.
     pub get_count: u64,
-    
+
     /// Number of pinned objects.
     pub pinned_count: usize,
-    
+
     /// Size histogram: (size_bucket_kb, count).
     pub size_histogram: Vec<(usize, usize)>,
 }
@@ -110,7 +110,7 @@ pub struct StoreStats {
 pub(crate) struct StoredObject {
     /// The serialized object data.
     pub data: Bytes,
-    
+
     /// Metadata about the object.
     pub metadata: Arc<ObjectMetadata>,
 }
@@ -120,14 +120,13 @@ pub(crate) struct StoredObject {
 pub(crate) struct PendingObject {
     /// Buffer being written to.
     pub buffer: bytes::BytesMut,
-    
+
     /// Expected size (if known).
     pub expected_size: Option<usize>,
-    
+
     /// Type information.
     pub type_id: std::any::TypeId,
-    
+
     /// Type name for debugging.
     pub type_name: String,
 }
-

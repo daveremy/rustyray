@@ -8,8 +8,9 @@ This directory contains design documents, reviews, and architectural decisions f
   - `phase1/` - Actor system design
   - `phase2/` - Task execution system design
   - `phase3/` - Macro system design
-  - `phase4/` - Object store design (current)
-  - `phase5/` - Distributed runtime design (future)
+  - `phase4/` - Object store design
+  - `phase4.5/` - Actor-object store integration
+  - `phase5/` - Reference counting design (current)
 
 - **`reviews/`** - Code reviews and feedback
   - Gemini AI reviews
@@ -24,16 +25,20 @@ This directory contains design documents, reviews, and architectural decisions f
 ## Key Documents
 
 ### Current Focus
-- [`design/phase4/phase4-object-store-design-v2.md`](design/phase4/phase4-object-store-design-v2.md) - Active object store design
+- [`design/phase5/phase5-reference-counting-design.md`](design/phase5/phase5-reference-counting-design.md) - Reference counting implementation
 
 ### Architecture
-- [`ray-vs-rustyray-comparison.md`](ray-vs-rustyray-comparison.md) - Comparison with Ray's architecture
+- [`ORGANIZATION.md`](ORGANIZATION.md) - Documentation structure guide
+- [`ADR-001-phase4.5-decisions.md`](ADR-001-phase4.5-decisions.md) - Key architectural decisions for object store integration
+- [`../DECISIONS.md`](../DECISIONS.md) - All architectural decisions tracked
 - [`../ROADMAP.md`](../ROADMAP.md) - Overall project roadmap
 
 ### Completed Phases
 - Phase 1: Actor System ✅
 - Phase 2: Task Execution ✅
 - Phase 3: Macro System ✅ (70% boilerplate reduction achieved!)
+- Phase 4: Object Store ✅ (Production-ready with CLRU cache)
+- Phase 4.5: Universal Object Sharing ✅ (Actors and tasks share seamlessly)
 
 ## Design Philosophy
 

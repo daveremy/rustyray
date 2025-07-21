@@ -100,25 +100,40 @@ async fn main() -> Result<()> {
 - Comprehensive error propagation
 - Task cancellation and timeouts
 
-**Phase 3: Macro System (Week 2 Complete!)**
+**Phase 3: Macro System**
 - `#[rustyray::remote]` for automatic function registration
 - `#[rustyray::actor]` for typed actor handles with generated message enums
 - `#[rustyray::actor_methods]` for zero-boilerplate method dispatch
 - `#[rustyray::main]` for automatic runtime initialization
 - **70% reduction in boilerplate code!**
 
+**Phase 4: Object Store**
+- Production-ready in-memory object store with CLRU cache
+- Zero-copy access patterns using `bytes::Bytes`
+- Type-safe storage with runtime type checking
+- Memory limits and automatic LRU eviction
+- Reference counting infrastructure
+
+**Phase 4.5: Universal Object Sharing** ✨ New!
+- **Unified ObjectRef**: Actors and tasks now share objects seamlessly
+- **Ray-style API**: Global `ray::put()` and `ray::get()` functions
+- **Automatic storage**: Task results automatically stored in object store
+- **Error propagation**: Errors stored and retrieved just like values
+- **Actor data sharing**: Actors can share large objects efficiently
+
 ### 🚀 Currently Working On
 
-**Phase 3: Polish & Release (Weeks 5-6)**
-- Migration guide from manual API
-- Performance benchmarks
-- Beta release preparation
+**Phase 5: Reference Counting & Memory Management**
+- Automatic reference counting for ObjectRefs
+- Safe memory reclamation when objects are no longer needed
+- Memory leak detection and prevention
 
 ### 📅 Future Plans
 
-- **Phase 4**: Local shared memory object store
-- **Phase 5**: Distributed runtime with gRPC
-- **Phase 6**: Production features (fault tolerance, monitoring)
+- **Phase 6**: Metadata & Error Enhancement
+- **Phase 7**: Performance Optimizations
+- **Phase 8**: Distributed Foundation
+- **Phase 9**: Production Features
 
 ## Getting Started
 
@@ -260,6 +275,54 @@ cargo fmt
 - [Ray Core Documentation](https://docs.ray.io/en/latest/ray-core/walkthrough.html)
 - Use Gemini to analyze Ray's source: see [CLAUDE.md](CLAUDE.md) for instructions
 
+## Object Sharing Between Actors and Tasks 🎯
+
+RustyRay now supports seamless data sharing between actors and tasks using Ray's object store pattern:
+
+### Using the Object Store
+
+```rust
+use rustyray::ray;
+
+// Put any serializable value into the object store
+let data = vec![1, 2, 3, 4, 5];
+let data_ref = ray::put(data).await?;
+
+// Share the reference with actors or tasks
+let processor = DataProcessor::remote().await?;
+let result = processor.process(data_ref.clone()).await?;
+
+// Get the value back
+let processed_data = ray::get(&result).await?;
+```
+
+### Actor Example with Shared Objects
+
+```rust
+#[rustyray::actor]
+struct MatrixProcessor {
+    name: String,
+}
+
+#[rustyray::actor_methods]
+impl MatrixProcessor {
+    pub fn new(name: String) -> Self {
+        Self { name }
+    }
+    
+    pub async fn multiply(&self, matrix_ref: ObjectRef<Matrix>) -> Result<ObjectRef<Matrix>> {
+        // Get matrix from object store
+        let matrix = ray::get(&matrix_ref).await?;
+        
+        // Process it
+        let result = matrix.multiply(&matrix);
+        
+        // Put result back
+        Ok(ray::put(result).await?)
+    }
+}
+```
+
 ## Architecture
 
 RustyRay implements Ray's core abstractions with Rust-native patterns:
@@ -277,9 +340,12 @@ RustyRay implements Ray's core abstractions with Rust-native patterns:
 - **Cancellation**: Tasks can be cancelled with proper cleanup
 
 ### Object Store
+- **Universal Storage**: Shared by actors and tasks in the runtime
 - **Zero-Copy**: Uses `bytes::Bytes` for efficient data sharing
-- **Reference Counting**: Automatic garbage collection
-- **Type Safety**: Compile-time type checking for stored objects
+- **Type Safety**: Runtime type checking with clear error messages
+- **Automatic Storage**: Task results automatically stored
+- **Error Propagation**: Errors stored with special markers
+- **Memory Management**: CLRU cache with strict memory limits
 
 ## Examples
 
@@ -290,6 +356,10 @@ Check out the [examples](crates/rustyray/examples/) directory:
 - [`tasks_macro.rs`](crates/rustyray/examples/tasks_macro.rs) - Remote functions and actor coordination
 - [`counter_macro.rs`](crates/rustyray/examples/counter_macro.rs) - Stateful actor with methods
 - [`comprehensive_macro_demo.rs`](crates/rustyray/examples/comprehensive_macro_demo.rs) - All macro features
+
+**Object Store & Data Sharing** (New!):
+- [`object_store_demo.rs`](crates/rustyray-core/examples/object_store_demo.rs) - Using ray::put/get API
+- [`actor_object_sharing.rs`](crates/rustyray-core/examples/actor_object_sharing.rs) - Actors sharing data via ObjectRef
 
 **Manual API** (For low-level control):
 - [`tasks.rs`](crates/rustyray/examples/tasks.rs) - Task execution patterns
