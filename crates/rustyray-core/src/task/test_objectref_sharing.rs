@@ -93,7 +93,8 @@ mod tests {
             // We can also still get the original data
             let data = data_ref.get().await.unwrap();
             assert_eq!(data, vec![1, 2, 3, 4, 5]);
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]
@@ -140,6 +141,7 @@ mod tests {
             // Original should also work
             let original_result = result_ref.get().await.unwrap();
             assert_eq!(original_result, 42);
-        }).await;
+        })
+        .await;
     }
 }

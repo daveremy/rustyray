@@ -144,13 +144,16 @@ async fn demonstrate_ray_api() -> Result<()> {
         DataSet::new("batch_2", 200),
         DataSet::new("batch_3", 300),
     ];
-    
+
     let refs = ray::put_batch(datasets.clone()).await?;
     println!("  - Stored {} datasets using ray::put_batch()", refs.len());
-    
+
     let retrieved_batch: Vec<DataSet> = ray::get_batch(&refs).await?;
-    println!("  - Retrieved {} datasets using ray::get_batch()", retrieved_batch.len());
-    
+    println!(
+        "  - Retrieved {} datasets using ray::get_batch()",
+        retrieved_batch.len()
+    );
+
     for (i, dataset) in retrieved_batch.iter().enumerate() {
         println!("    - {}: {} items", dataset.name, dataset.values.len());
     }
@@ -196,8 +199,8 @@ async fn demonstrate_with_tasks(task_system: &TaskSystem) -> Result<()> {
     // Submit processing task using TaskBuilder
     println!("\nSubmitting processing task...");
     use rustyray_core::TaskBuilder;
-    
-    // For now, we'll pass the dataset value directly since ObjectRef 
+
+    // For now, we'll pass the dataset value directly since ObjectRef
     // deserialization in tasks is still being integrated
     let result_ref = TaskBuilder::new("process_dataset")
         .arg(DataSet::new("task_dataset", 100)) // Pass value for now
@@ -212,7 +215,11 @@ async fn demonstrate_with_tasks(task_system: &TaskSystem) -> Result<()> {
     // Demonstrate that the original dataset is still available
     println!("\nOriginal dataset still available:");
     let original_data: DataSet = ray::get(&dataset_ref).await?;
-    println!("  - Retrieved '{}' with {} items", original_data.name, original_data.values.len());
+    println!(
+        "  - Retrieved '{}' with {} items",
+        original_data.name,
+        original_data.values.len()
+    );
 
     Ok(())
 }

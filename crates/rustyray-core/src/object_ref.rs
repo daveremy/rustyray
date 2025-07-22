@@ -33,7 +33,7 @@ use std::task::{Context, Poll};
 pub struct ObjectRef<T> {
     /// The unique ID of this object
     id: ObjectId,
-    
+
     /// Optional reference to the object store (not serialized)
     #[serde(skip)]
     store: Option<Arc<InMemoryStore>>,
@@ -45,6 +45,7 @@ pub struct ObjectRef<T> {
 
 impl<T> ObjectRef<T> {
     /// Create a new ObjectRef from an object ID.
+    #[allow(dead_code)]
     pub(crate) fn new(id: ObjectId) -> Self {
         ObjectRef {
             id,
@@ -52,7 +53,7 @@ impl<T> ObjectRef<T> {
             _phantom: PhantomData,
         }
     }
-    
+
     /// Create a new ObjectRef with a specific store.
     pub(crate) fn with_store(id: ObjectId, store: Arc<InMemoryStore>) -> Self {
         ObjectRef {
@@ -79,11 +80,11 @@ impl<T: DeserializeOwned + Send + 'static> ObjectRef<T> {
             store.clone()
         } else {
             // Fallback to global runtime
-            let runtime = crate::runtime::global()
-                .map_err(|_| RustyRayError::RuntimeNotInitialized)?;
+            let runtime =
+                crate::runtime::global().map_err(|_| RustyRayError::RuntimeNotInitialized)?;
             runtime.object_store().clone()
         };
-        
+
         // Poll the object store with exponential backoff
         let mut retries = 0;
         let max_retries = 100;
@@ -138,8 +139,6 @@ impl<T: DeserializeOwned + Send + 'static> Future for ObjectRef<T> {
     }
 }
 
-
-
 impl<T> fmt::Debug for ObjectRef<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ObjectRef")
@@ -160,19 +159,17 @@ impl<T> fmt::Display for ObjectRef<T> {
 /// This allows ObjectRef to be properly rehydrated with an object store
 /// reference when deserialized in a task context.
 impl<T: Send + Sync + 'static> ContextualDeserialize for ObjectRef<T> {
-    fn deserialize_with_context(
-        bytes: &[u8],
-        context: &DeserializationContext,
-    ) -> Result<Self> {
+    fn deserialize_with_context(bytes: &[u8], context: &DeserializationContext) -> Result<Self> {
         // First deserialize just the ID using a helper struct
         #[derive(Deserialize)]
         struct ObjectRefData {
             id: ObjectId,
         }
-        
-        let data: ObjectRefData = crate::task::serde_utils::deserialize(bytes)
-            .map_err(|e| RustyRayError::Internal(format!("Failed to deserialize ObjectRef: {}", e)))?;
-        
+
+        let data: ObjectRefData = crate::task::serde_utils::deserialize(bytes).map_err(|e| {
+            RustyRayError::Internal(format!("Failed to deserialize ObjectRef: {e}"))
+        })?;
+
         // Then create the ObjectRef with the store from context
         Ok(ObjectRef {
             id: data.id,
@@ -182,7 +179,6 @@ impl<T: Send + Sync + 'static> ContextualDeserialize for ObjectRef<T> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -191,7 +187,7 @@ mod tests {
     async fn test_object_ref_store_backed() {
         // Initialize runtime for test
         let _ = crate::runtime::init(); // Ignore error if already initialized
-        
+
         let runtime = crate::runtime::global().unwrap();
         let store = runtime.object_store();
         let value = 42i32;
@@ -211,7 +207,7 @@ mod tests {
     async fn test_object_ref_clone() {
         // Initialize runtime for test (or reuse existing)
         let _ = crate::runtime::init();
-        
+
         let runtime = crate::runtime::global().unwrap();
         let store = runtime.object_store();
         let value = "hello".to_string();
@@ -232,7 +228,7 @@ mod tests {
     async fn test_object_ref_future() {
         // Initialize runtime for test (or reuse existing)
         let _ = crate::runtime::init();
-        
+
         let runtime = crate::runtime::global().unwrap();
         let store = runtime.object_store();
         let value = vec![1, 2, 3];
@@ -252,7 +248,7 @@ mod tests {
     async fn test_object_ref_not_found() {
         // Initialize runtime for test (or reuse existing)
         let _ = crate::runtime::init();
-        
+
         let id = ObjectId::new();
 
         // Create ObjectRef for non-existent object
@@ -265,11 +261,11 @@ mod tests {
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("not found"));
     }
-    
+
     #[test]
     fn test_object_ref_serialization() {
         let obj_ref = ObjectRef::<i32>::new(ObjectId::new());
-        
+
         // Test bincode serialization (what tasks actually use)
         let encoded = crate::task::serde_utils::serialize(&obj_ref).unwrap();
         let decoded: ObjectRef<i32> = crate::task::serde_utils::deserialize(&encoded).unwrap();

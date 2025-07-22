@@ -39,7 +39,8 @@ mod tests {
             assert!(result.is_ok());
             let value = result.unwrap().get().await.unwrap();
             assert_eq!(value, "42: test");
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]
@@ -62,7 +63,8 @@ mod tests {
             assert!(get_result.is_err());
             let error_msg = get_result.unwrap_err().to_string();
             assert!(error_msg.contains("not found"));
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]

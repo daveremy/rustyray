@@ -16,7 +16,7 @@ async fn main() -> Result<()> {
     runtime::init()?;
     let rt = runtime::global()?;
     let actor_system = rt.actor_system();
-    
+
     // Create a custom task system with timeout for this example
     let task_system = Arc::new(TaskSystem::with_timeout(
         actor_system.clone(),

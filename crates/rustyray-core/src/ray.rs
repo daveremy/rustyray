@@ -34,7 +34,7 @@ where
 {
     let runtime = runtime::global()?;
     let task_system = runtime.task_system();
-    
+
     // Use the task system's put method which handles both storage and notification
     task_system.put(value).await
 }
@@ -85,15 +85,15 @@ where
 {
     let runtime = runtime::global()?;
     let task_system = runtime.task_system();
-    
+
     let mut refs = Vec::with_capacity(values.len());
-    
+
     // Use the task system's put method for each value
     for value in values {
         let obj_ref = task_system.put(value).await?;
         refs.push(obj_ref);
     }
-    
+
     Ok(refs)
 }
 
@@ -118,12 +118,12 @@ where
     T: DeserializeOwned + Send + 'static,
 {
     let mut results = Vec::with_capacity(obj_refs.len());
-    
+
     // In the future, we could optimize this with parallel fetching
     for obj_ref in obj_refs {
         results.push(obj_ref.get().await?);
     }
-    
+
     Ok(results)
 }
 
@@ -139,7 +139,7 @@ where
 /// # let refs = ray::put_batch(vec![1, 2, 3]).await?;
 /// // Wait for all objects to be ready
 /// ray::wait(&refs).await?;
-/// 
+///
 /// // Now get() calls will return immediately
 /// let values: Vec<i32> = ray::get_batch(&refs).await?;
 /// # Ok(())
@@ -154,7 +154,7 @@ where
     for obj_ref in obj_refs {
         let _ = obj_ref.get().await?;
     }
-    
+
     Ok(())
 }
 
@@ -162,7 +162,7 @@ where
 mod tests {
     use super::*;
     use crate::test_utils::with_test_runtime;
-    
+
     #[tokio::test]
     async fn test_put_get() {
         with_test_runtime(|| async {
@@ -171,15 +171,16 @@ mod tests {
             let obj_ref = put(value).await.unwrap();
             let retrieved = get(&obj_ref).await.unwrap();
             assert_eq!(retrieved, 42);
-            
+
             // Test with complex type
             let data = vec!["hello".to_string(), "world".to_string()];
             let obj_ref = put(data.clone()).await.unwrap();
             let retrieved: Vec<String> = get(&obj_ref).await.unwrap();
             assert_eq!(retrieved, data);
-        }).await;
+        })
+        .await;
     }
-    
+
     #[tokio::test]
     async fn test_batch_operations() {
         with_test_runtime(|| async {
@@ -187,74 +188,81 @@ mod tests {
             let values = vec![1, 2, 3, 4, 5];
             let refs = put_batch(values.clone()).await.unwrap();
             assert_eq!(refs.len(), 5);
-            
+
             let retrieved = get_batch(&refs).await.unwrap();
             assert_eq!(retrieved, values);
-        }).await;
+        })
+        .await;
     }
-    
+
     #[tokio::test]
     async fn test_wait() {
         with_test_runtime(|| async {
             // Put some values
             let refs = put_batch(vec![10, 20, 30]).await.unwrap();
-            
+
             // Wait for them (should complete immediately since we just put them)
             wait(&refs).await.unwrap();
-            
+
             // Get should be instant
             let values = get_batch(&refs).await.unwrap();
             assert_eq!(values, vec![10, 20, 30]);
-        }).await;
+        })
+        .await;
     }
-    
+
     #[tokio::test]
     async fn test_error_propagation() {
         with_test_runtime(|| async {
-            // Create a non-existent ObjectRef  
+            // Create a non-existent ObjectRef
             let runtime = runtime::global().unwrap();
             let store = runtime.object_store();
             let fake_id = crate::types::ObjectId::new();
             let fake_ref = ObjectRef::<i32>::with_store(fake_id, store.clone());
-            
+
             // Getting it should fail
             let result = get(&fake_ref).await;
             assert!(result.is_err());
             assert!(result.unwrap_err().to_string().contains("not found"));
-        }).await;
+        })
+        .await;
     }
-    
+
     #[tokio::test]
     async fn test_concurrent_operations() {
         with_test_runtime(|| async {
             // This test verifies that the runtime supports concurrent operations
             let mut handles = vec![];
-            
+
             // Spawn 10 concurrent tasks that all put and get objects
             for i in 0..10 {
                 let handle = tokio::spawn(async move {
                     // Each task puts its own value
                     let obj_ref = put(i * 100).await.unwrap();
-                    
+
                     // And retrieves it
                     let value = get(&obj_ref).await.unwrap();
                     assert_eq!(value, i * 100);
-                    
+
                     // Return the value for verification
                     value
                 });
                 handles.push(handle);
             }
-            
+
             // Wait for all tasks and verify results
             let mut results = vec![];
             for handle in handles {
                 results.push(handle.await.unwrap());
             }
-            
+
             // Sort results to check we got all values
             results.sort();
-            assert_eq!(results, vec![0, 100, 200, 300, 400, 500, 600, 700, 800, 900]);
-        }).await;
+            assert_eq!(
+                results,
+                vec![0, 100, 200, 300, 400, 500, 600, 700, 800, 900]
+            );
+        })
+        .await;
     }
 }

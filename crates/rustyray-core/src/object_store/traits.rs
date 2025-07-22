@@ -70,6 +70,7 @@ pub trait ObjectStore: Send + Sync {
 
 // Future support for Create/Seal pattern (internal until implemented)
 #[async_trait]
+#[allow(dead_code)]
 pub(crate) trait CreateSealStore: ObjectStore {
     /// Create a buffer for direct writing.
     ///

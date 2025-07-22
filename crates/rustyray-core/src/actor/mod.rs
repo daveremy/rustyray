@@ -182,6 +182,12 @@ pub struct ActorSystem {
     shutdown_state: Arc<AtomicU8>,
 }
 
+impl Default for ActorSystem {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ActorSystem {
     /// Create a new actor system.
     pub fn new() -> Self {
@@ -224,7 +230,7 @@ impl ActorSystem {
         tokio::spawn(async move {
             // Call on_start
             if let Err(e) = actor.on_start().await {
-                eprintln!("Actor {} failed to start: {:?}", id, e);
+                eprintln!("Actor {id} failed to start: {e:?}");
                 let _ = shutdown_tx.send(());
                 return;
             }
@@ -252,7 +258,7 @@ impl ActorSystem {
 
             // Call on_stop when the channel is closed
             if let Err(e) = actor.on_stop().await {
-                eprintln!("Actor {} failed to stop cleanly: {:?}", id, e);
+                eprintln!("Actor {id} failed to stop cleanly: {e:?}");
             }
 
             // Remove from registry
@@ -306,7 +312,7 @@ impl ActorSystem {
                 for (id, receiver) in shutdown_receivers {
                     match receiver.await {
                         Ok(()) => {}
-                        Err(_) => eprintln!("Actor {} shutdown receiver dropped unexpectedly", id),
+                        Err(_) => eprintln!("Actor {id} shutdown receiver dropped unexpectedly"),
                     }
                 }
 

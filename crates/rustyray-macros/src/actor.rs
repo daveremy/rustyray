@@ -45,15 +45,15 @@ pub fn actor_impl(args: TokenStream, input: TokenStream) -> TokenStream {
     }
 
     // Generate the handle struct name
-    let handle_name = Ident::new(&format!("{}Handle", struct_name), Span::call_site());
+    let handle_name = Ident::new(&format!("{struct_name}Handle"), Span::call_site());
     let actor_id_name = Ident::new(
         &format!("{}_ACTOR_ID", struct_name.to_string().to_uppercase()),
         Span::call_site(),
     );
 
     // Generate message enum name - these will be used by actor_methods
-    let _message_enum_name = Ident::new(&format!("{}Message", struct_name), Span::call_site());
-    let _response_enum_name = Ident::new(&format!("{}Response", struct_name), Span::call_site());
+    let _message_enum_name = Ident::new(&format!("{struct_name}Message"), Span::call_site());
+    let _response_enum_name = Ident::new(&format!("{struct_name}Response"), Span::call_site());
 
     // Store actor metadata in a const that can be used by actor_methods
     let metadata = quote! {
@@ -130,10 +130,10 @@ pub fn actor_methods_impl(_args: TokenStream, input: TokenStream) -> TokenStream
     };
 
     // Generate associated type names
-    let handle_name = Ident::new(&format!("{}Handle", struct_name), Span::call_site());
-    let message_enum_name = Ident::new(&format!("{}Message", struct_name), Span::call_site());
-    let response_enum_name = Ident::new(&format!("{}Response", struct_name), Span::call_site());
-    let wrapper_name = Ident::new(&format!("{}ActorWrapper", struct_name), Span::call_site());
+    let handle_name = Ident::new(&format!("{struct_name}Handle"), Span::call_site());
+    let message_enum_name = Ident::new(&format!("{struct_name}Message"), Span::call_site());
+    let response_enum_name = Ident::new(&format!("{struct_name}Response"), Span::call_site());
+    let wrapper_name = Ident::new(&format!("{struct_name}ActorWrapper"), Span::call_site());
 
     // Collect methods and categorize them
     let mut generated_constructors = Vec::new();
@@ -185,7 +185,7 @@ pub fn actor_methods_impl(_args: TokenStream, input: TokenStream) -> TokenStream
                 let remote_method_name = if method_name == "new" {
                     Ident::new("remote", Span::call_site())
                 } else {
-                    Ident::new(&format!("remote_{}", method_name), Span::call_site())
+                    Ident::new(&format!("remote_{method_name}"), Span::call_site())
                 };
 
                 let constructor_method = quote! {
@@ -357,20 +357,18 @@ pub fn actor_methods_impl(_args: TokenStream, input: TokenStream) -> TokenStream
                             }
                         }
                     }
-                } else {
-                    if is_async {
-                        quote! {
-                            #message_enum_name::#variant_name { #(#param_names),* } => {
-                                let result = self.0.#method_name(#(#param_names),*).await;
-                                Ok(Box::new(#response_enum_name::#variant_name(result)))
-                            }
+                } else if is_async {
+                    quote! {
+                        #message_enum_name::#variant_name { #(#param_names),* } => {
+                            let result = self.0.#method_name(#(#param_names),*).await;
+                            Ok(Box::new(#response_enum_name::#variant_name(result)))
                         }
-                    } else {
-                        quote! {
-                            #message_enum_name::#variant_name { #(#param_names),* } => {
-                                let result = self.0.#method_name(#(#param_names),*);
-                                Ok(Box::new(#response_enum_name::#variant_name(result)))
-                            }
+                    }
+                } else {
+                    quote! {
+                        #message_enum_name::#variant_name { #(#param_names),* } => {
+                            let result = self.0.#method_name(#(#param_names),*);
+                            Ok(Box::new(#response_enum_name::#variant_name(result)))
                         }
                     }
                 };

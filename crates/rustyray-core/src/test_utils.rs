@@ -4,13 +4,13 @@
 //! writing tests easier and more consistent.
 //!
 //! # Test Execution and Concurrency
-//! 
+//!
 //! RustyRay's runtime FULLY SUPPORTS concurrent execution of actors and tasks - this is
 //! fundamental to Ray's design and is thoroughly tested. However, our test suite requires
 //! careful handling of the global runtime to ensure test isolation.
 //!
 //! ## Important Points:
-//! 
+//!
 //! 1. **The runtime is concurrent** - Multiple actors and tasks can and do run concurrently
 //!    within a single runtime instance. This is verified by our concurrent operation tests.
 //!
@@ -34,7 +34,10 @@
 //! This ensures tests don't interfere with each other's runtime initialization/shutdown.
 //! This is NOT because the runtime doesn't support concurrency - it's purely for test isolation.
 
-use std::sync::{Arc, atomic::{AtomicBool, AtomicUsize, Ordering}};
+use std::sync::{
+    atomic::{AtomicBool, AtomicUsize, Ordering},
+    Arc,
+};
 use tokio::sync::Notify;
 
 // Track if a test is currently using the runtime
@@ -42,7 +45,7 @@ static TEST_RUNTIME_IN_USE: AtomicBool = AtomicBool::new(false);
 static CONCURRENT_TEST_ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
 
 /// A test synchronization helper that provides notification and event tracking.
-/// 
+///
 /// This is useful for coordinating between test code and async operations,
 /// especially when testing actor lifecycle events like `on_stop`.
 pub struct TestSync {
@@ -56,17 +59,17 @@ impl TestSync {
             notification: Arc::new(Notify::new()),
         }
     }
-    
+
     /// Get a notification handle that can be shared with actors or tasks
     pub fn notification() -> Arc<Notify> {
         Arc::new(Notify::new())
     }
-    
+
     /// Notify any waiters
     pub fn notify(&self) {
         self.notification.notify_one();
     }
-    
+
     /// Wait for notification
     pub async fn wait(&self) {
         self.notification.notified().await;
@@ -88,20 +91,19 @@ pub fn init_test_runtime() {
 /// Clear runtime state. This is now a no-op as tests use with_test_runtime.
 #[deprecated(note = "Use with_test_runtime instead")]
 pub async fn clear_runtime_state() {
-    // No-op for backward compatibility  
+    // No-op for backward compatibility
 }
 
-
 /// Run a test with a fresh runtime instance
-/// 
+///
 /// This fixture ensures that:
 /// - Each test gets a fresh runtime instance
 /// - Runtime is properly initialized before the test
 /// - Runtime is shutdown after the test (even if it panics)
 /// - Tests are isolated from each other
-/// 
+///
 /// # Example
-/// 
+///
 /// ```rust
 /// #[tokio::test]
 /// async fn test_something() {
@@ -139,11 +141,11 @@ where
             ========================================\n"
         );
     }
-    
+
     // Use a mutex as a secondary protection
     static TEST_MUTEX: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
     let _guard = TEST_MUTEX.lock().await;
-    
+
     // Helper to perform cleanup
     async fn cleanup() {
         if let Ok(runtime) = crate::runtime::global() {
@@ -154,28 +156,28 @@ where
         }
         let _ = crate::runtime::shutdown();
     }
-    
+
     // Ensure clean state before test
     if crate::runtime::is_initialized() {
         cleanup().await;
     }
-    
+
     // Initialize runtime for this test
     crate::runtime::init().expect("Failed to initialize runtime for test");
-    
+
     // Create a wrapper future that handles panics
     use futures::FutureExt;
     let test_future = std::panic::AssertUnwindSafe(test_body()).catch_unwind();
-    
+
     // Run the test with panic protection
     let result = test_future.await;
-    
+
     // Always cleanup, even if test panicked
     cleanup().await;
-    
+
     // Release the runtime for the next test
     TEST_RUNTIME_IN_USE.store(false, Ordering::SeqCst);
-    
+
     // Re-panic if test failed
     if let Err(panic) = result {
         std::panic::resume_unwind(panic);
@@ -183,11 +185,11 @@ where
 }
 
 /// Run a test with a fresh runtime instance (blocking version)
-/// 
+///
 /// This is useful for non-async tests that still need runtime access.
-/// 
+///
 /// # Example
-/// 
+///
 /// ```rust
 /// #[test]
 /// fn test_something_sync() {
@@ -223,14 +225,14 @@ where
             ========================================\n"
         );
     }
-    
+
     // Use a mutex as a secondary protection
     static TEST_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
     let _guard = TEST_MUTEX.lock().unwrap();
-    
+
     // Create a tokio runtime for async cleanup
     let rt = tokio::runtime::Runtime::new().unwrap();
-    
+
     // Ensure clean state before test
     if crate::runtime::is_initialized() {
         // Get the runtime to shut down its systems properly
@@ -243,17 +245,17 @@ where
             });
         }
         let _ = crate::runtime::shutdown();
-        
+
         // Small delay to ensure cleanup completes
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
-    
+
     // Initialize runtime for this test
     crate::runtime::init().expect("Failed to initialize runtime for test");
-    
+
     // Run test with panic protection
     let result = std::panic::catch_unwind(test_body);
-    
+
     // Always cleanup, even if test panicked
     if let Ok(runtime) = crate::runtime::global() {
         let task_system = runtime.task_system().clone();
@@ -264,10 +266,10 @@ where
         });
     }
     let _ = crate::runtime::shutdown();
-    
+
     // Release the runtime for the next test
     TEST_RUNTIME_IN_USE.store(false, Ordering::SeqCst);
-    
+
     // Re-panic if test failed
     if let Err(panic) = result {
         std::panic::resume_unwind(panic);

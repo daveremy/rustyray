@@ -105,7 +105,6 @@ pub mod test_utils;
 #[cfg(test)]
 mod tests;
 
-
 // Re-exports for convenience
 pub use actor::{Actor, ActorRef, ActorSystem};
 pub use error::{Result, RustyRayError};

@@ -54,7 +54,9 @@ async fn test_task_system_idempotent_shutdown() {
         task_system
             .register_function(
                 "test",
-                task_function!(|x: i32| async move { Ok::<i32, crate::error::RustyRayError>(x * 2) }),
+                task_function!(
+                    |x: i32| async move { Ok::<i32, crate::error::RustyRayError>(x * 2) }
+                ),
             )
             .unwrap();
 
@@ -81,7 +83,8 @@ async fn test_task_system_idempotent_shutdown() {
         // Actor system shutdown should also be idempotent
         actor_system.shutdown().await.unwrap();
         actor_system.shutdown().await.unwrap();
-    }).await;
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -126,7 +129,8 @@ async fn test_concurrent_shutdown() {
         for handle in handles {
             handle.await.unwrap();
         }
-    }).await;
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -154,7 +158,8 @@ async fn test_no_new_tasks_after_shutdown() {
 
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("shutting down"));
-    }).await;
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -193,7 +198,8 @@ async fn test_no_new_actors_after_shutdown() {
 
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("shutting down"));
-    }).await;
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -228,7 +234,8 @@ async fn test_graceful_actor_shutdown() {
         let final_ops = operations.load(Ordering::SeqCst);
         // 3 actors * (5 operations + 1000 from on_stop) = 3015
         assert_eq!(final_ops, 3015);
-    }).await;
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -238,63 +245,65 @@ async fn test_task_completion_before_shutdown() {
         let actor_system = runtime.actor_system();
         let task_system = runtime.task_system();
 
-    // Create a barrier to ensure all tasks have started
-    let task_started = Arc::new(tokio::sync::Barrier::new(6)); // 5 tasks + 1 main thread
+        // Create a barrier to ensure all tasks have started
+        let task_started = Arc::new(tokio::sync::Barrier::new(6)); // 5 tasks + 1 main thread
 
-    // Register a slow function that signals when it starts
-    let barrier_clone = task_started.clone();
-    let slow_fn = move |args: Vec<Vec<u8>>, _context: crate::task::context::DeserializationContext| {
-        let barrier = barrier_clone.clone();
-        Box::pin(async move {
-            if args.len() != 1 {
-                return Err(crate::error::RustyRayError::Internal(
-                    "Expected 1 argument".to_string(),
-                ));
-            }
-            let x: i32 = crate::task::serde_utils::deserialize(&args[0])?;
+        // Register a slow function that signals when it starts
+        let barrier_clone = task_started.clone();
+        let slow_fn =
+            move |args: Vec<Vec<u8>>, _context: crate::task::context::DeserializationContext| {
+                let barrier = barrier_clone.clone();
+                Box::pin(async move {
+                    if args.len() != 1 {
+                        return Err(crate::error::RustyRayError::Internal(
+                            "Expected 1 argument".to_string(),
+                        ));
+                    }
+                    let x: i32 = crate::task::serde_utils::deserialize(&args[0])?;
 
-            // Signal that task has started
-            barrier.wait().await;
-            time::sleep(Duration::from_millis(100)).await;
-            let result = x * 3;
-            Ok(crate::task::serde_utils::serialize(&result).unwrap())
-        }) as crate::task::BoxFuture<'static, crate::error::Result<Vec<u8>>>
-    };
-    task_system.register_function("slow", slow_fn).unwrap();
+                    // Signal that task has started
+                    barrier.wait().await;
+                    time::sleep(Duration::from_millis(100)).await;
+                    let result = x * 3;
+                    Ok(crate::task::serde_utils::serialize(&result).unwrap())
+                }) as crate::task::BoxFuture<'static, crate::error::Result<Vec<u8>>>
+            };
+        task_system.register_function("slow", slow_fn).unwrap();
 
-    // Submit multiple tasks
-    let mut refs = vec![];
-    for i in 0..5 {
-        let result_ref = TaskBuilder::new("slow")
-            .arg(i)
-            .submit::<i32>(&task_system)
-            .await
-            .unwrap();
-        refs.push((i, result_ref));
-    }
-
-    // Start shutdown after all tasks have started
-    let shutdown_handle = tokio::spawn({
-        let ts = task_system.clone();
-        let as_ = actor_system.clone();
-        let barrier = task_started.clone();
-        async move {
-            // Wait for all tasks to start
-            barrier.wait().await;
-            ts.shutdown().await.unwrap();
-            as_.shutdown().await.unwrap();
+        // Submit multiple tasks
+        let mut refs = vec![];
+        for i in 0..5 {
+            let result_ref = TaskBuilder::new("slow")
+                .arg(i)
+                .submit::<i32>(&task_system)
+                .await
+                .unwrap();
+            refs.push((i, result_ref));
         }
-    });
 
-    // All tasks should still complete successfully
-    for (i, ref_) in refs {
-        let result = ref_.get().await.unwrap();
-        assert_eq!(result, i * 3);
-    }
+        // Start shutdown after all tasks have started
+        let shutdown_handle = tokio::spawn({
+            let ts = task_system.clone();
+            let as_ = actor_system.clone();
+            let barrier = task_started.clone();
+            async move {
+                // Wait for all tasks to start
+                barrier.wait().await;
+                ts.shutdown().await.unwrap();
+                as_.shutdown().await.unwrap();
+            }
+        });
 
-    // Shutdown should have completed
-    shutdown_handle.await.unwrap();
-    }).await;
+        // All tasks should still complete successfully
+        for (i, ref_) in refs {
+            let result = ref_.get().await.unwrap();
+            assert_eq!(result, i * 3);
+        }
+
+        // Shutdown should have completed
+        shutdown_handle.await.unwrap();
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -307,48 +316,51 @@ async fn test_shared_system_references() {
         let actor_system = runtime.actor_system();
         let task_system = runtime.task_system();
 
-    // Create multiple references
-    let ts_ref1 = task_system.clone();
-    let ts_ref2 = task_system.clone();
-    let as_ref1 = actor_system.clone();
-    let as_ref2 = actor_system.clone();
+        // Create multiple references
+        let ts_ref1 = task_system.clone();
+        let ts_ref2 = task_system.clone();
+        let as_ref1 = actor_system.clone();
+        let as_ref2 = actor_system.clone();
 
-    // Register function using one reference
-    ts_ref1
-        .register_function(
-            "echo",
-            task_function!(|x: String| async move { Ok::<String, crate::error::RustyRayError>(x) }),
-        )
-        .unwrap();
+        // Register function using one reference
+        ts_ref1
+            .register_function(
+                "echo",
+                task_function!(
+                    |x: String| async move { Ok::<String, crate::error::RustyRayError>(x) }
+                ),
+            )
+            .unwrap();
 
-    // Submit task using another reference
-    let result_ref = TaskBuilder::new("echo")
-        .arg("Hello".to_string())
-        .submit::<String>(&ts_ref2)
-        .await
-        .unwrap();
+        // Submit task using another reference
+        let result_ref = TaskBuilder::new("echo")
+            .arg("Hello".to_string())
+            .submit::<String>(&ts_ref2)
+            .await
+            .unwrap();
 
-    let result = result_ref.get().await.unwrap();
-    assert_eq!(result, "Hello");
+        let result = result_ref.get().await.unwrap();
+        assert_eq!(result, "Hello");
 
-    // Shutdown using yet another reference
-    task_system.shutdown().await.unwrap();
-    actor_system.shutdown().await.unwrap();
+        // Shutdown using yet another reference
+        task_system.shutdown().await.unwrap();
+        actor_system.shutdown().await.unwrap();
 
-    // All references are still valid, but the systems are shut down
-    // Trying to use them should fail gracefully
-    let submit_result = TaskBuilder::new("echo")
-        .arg("World".to_string())
-        .submit::<String>(&ts_ref1)
-        .await;
-    assert!(submit_result.is_err());
+        // All references are still valid, but the systems are shut down
+        // Trying to use them should fail gracefully
+        let submit_result = TaskBuilder::new("echo")
+            .arg("World".to_string())
+            .submit::<String>(&ts_ref1)
+            .await;
+        assert!(submit_result.is_err());
 
-    // Drop all references - no panic should occur
-    drop(ts_ref1);
-    drop(ts_ref2);
-    drop(as_ref1);
-    drop(as_ref2);
-    drop(task_system);
-    drop(actor_system);
-    }).await;
+        // Drop all references - no panic should occur
+        drop(ts_ref1);
+        drop(ts_ref2);
+        drop(as_ref1);
+        drop(as_ref2);
+        drop(task_system);
+        drop(actor_system);
+    })
+    .await;
 }
