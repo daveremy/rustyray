@@ -414,9 +414,7 @@ async fn test_eviction_at_capacity() -> Result<()> {
     println!("Eviction count from stats: {}", stats.eviction_count);
 
     let stats_after = store.stats().await;
-    println!(
-        "After putting 10 objects with strict enforcement: {stats_after:?}"
-    );
+    println!("After putting 10 objects with strict enforcement: {stats_after:?}");
     assert!(
         stats_after.total_size <= 1000,
         "Total size still within capacity"
@@ -445,9 +443,7 @@ async fn test_single_object_exceeds_capacity() -> Result<()> {
     let test_size = bincode::serde::encode_to_vec(&large_data, bincode::config::standard())
         .unwrap()
         .len();
-    println!(
-        "Actual serialized size: {test_size} bytes (limit: 1000 bytes)"
-    );
+    println!("Actual serialized size: {test_size} bytes (limit: 1000 bytes)");
 
     // Now this should fail with our strict enforcement
     let result = store.put(large_data.clone()).await;

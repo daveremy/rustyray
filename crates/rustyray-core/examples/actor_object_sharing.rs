@@ -201,10 +201,12 @@ async fn main() -> Result<()> {
     println!("\n--- Phase 1: Producers create matrices ---");
 
     // Producers create matrices
-    let matrices = [create_matrix(&producer1, "matrix_A", 100, 100).await?,
+    let matrices = [
+        create_matrix(&producer1, "matrix_A", 100, 100).await?,
         create_matrix(&producer1, "matrix_B", 200, 200).await?,
         create_matrix(&producer2, "matrix_C", 150, 150).await?,
-        create_matrix(&producer2, "matrix_D", 300, 300).await?];
+        create_matrix(&producer2, "matrix_D", 300, 300).await?,
+    ];
 
     println!("\n--- Phase 2: Consumers process matrices ---");
 
@@ -296,12 +298,11 @@ async fn print_producer_stats(producer: &ActorRef) -> Result<()> {
     let response = producer.call(Box::new(ProducerCommand::GetStats)).await?;
 
     if let Some(ProducerResponse::Stats {
-            producer_id,
-            matrices_created,
-        }) = response.downcast_ref::<ProducerResponse>() {
-        println!(
-            "Producer {producer_id}: Created {matrices_created} matrices"
-        );
+        producer_id,
+        matrices_created,
+    }) = response.downcast_ref::<ProducerResponse>()
+    {
+        println!("Producer {producer_id}: Created {matrices_created} matrices");
     }
     Ok(())
 }
@@ -310,12 +311,11 @@ async fn print_consumer_stats(consumer: &ActorRef) -> Result<()> {
     let response = consumer.call(Box::new(ConsumerCommand::GetStats)).await?;
 
     if let Some(ConsumerResponse::Stats {
-            consumer_id,
-            matrices_processed,
-        }) = response.downcast_ref::<ConsumerResponse>() {
-        println!(
-            "Consumer {consumer_id}: Processed {matrices_processed} matrices"
-        );
+        consumer_id,
+        matrices_processed,
+    }) = response.downcast_ref::<ConsumerResponse>()
+    {
+        println!("Consumer {consumer_id}: Processed {matrices_processed} matrices");
     }
     Ok(())
 }

@@ -107,11 +107,13 @@ async fn test_concurrent_shutdown() {
 
         // Submit some tasks
         for i in 0..5 {
-            drop(TaskBuilder::new("sleep")
-                .arg(50u64 + i * 10)
-                .submit::<()>(task_system)
-                .await
-                .unwrap());
+            drop(
+                TaskBuilder::new("sleep")
+                    .arg(50u64 + i * 10)
+                    .submit::<()>(task_system)
+                    .await
+                    .unwrap(),
+            );
         }
 
         // Spawn multiple concurrent shutdown tasks
