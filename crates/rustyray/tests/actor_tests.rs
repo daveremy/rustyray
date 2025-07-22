@@ -2,6 +2,7 @@
 #![cfg(test)]
 
 use rustyray::prelude::*;
+use rustyray_core::test_utils::with_test_runtime;
 
 #[rustyray::actor]
 struct TestActor {
@@ -32,23 +33,23 @@ impl TestActor {
 
 #[tokio::test]
 async fn test_actor_basic_operations() {
-    // Initialize runtime if needed
-    let _ = rustyray::runtime::init();
+    with_test_runtime(|| async {
+        // Create actor
+        let actor = TestActor::remote("test".to_string()).await.unwrap();
 
-    // Create actor
-    let actor = TestActor::remote("test".to_string()).await.unwrap();
+        // Test increment
+        let val1 = actor.increment().await.unwrap().get().await.unwrap();
+        assert_eq!(val1, 1);
 
-    // Test increment
-    let val1 = actor.increment().await.unwrap().get().await.unwrap();
-    assert_eq!(val1, 1);
+        // Test add
+        let val2 = actor.add(5).await.unwrap().get().await.unwrap();
+        assert_eq!(val2, 6);
 
-    // Test add
-    let val2 = actor.add(5).await.unwrap().get().await.unwrap();
-    assert_eq!(val2, 6);
-
-    // Test get_value
-    let current = actor.get_value().await.unwrap().get().await.unwrap();
-    assert_eq!(current, 6);
+        // Test get_value
+        let current = actor.get_value().await.unwrap().get().await.unwrap();
+        assert_eq!(current, 6);
+    })
+    .await;
 }
 
 #[rustyray::actor]
@@ -80,17 +81,18 @@ impl MultiConstructorActor {
 
 #[tokio::test]
 async fn test_multiple_constructors() {
-    let _ = rustyray::runtime::init();
+    with_test_runtime(|| async {
+        // Test default constructor
+        let actor1 = MultiConstructorActor::remote_default().await.unwrap();
+        let (mode1, val1) = actor1.get_info().await.unwrap().get().await.unwrap();
+        assert_eq!(mode1, "default");
+        assert_eq!(val1, 0);
 
-    // Test default constructor
-    let actor1 = MultiConstructorActor::remote_default().await.unwrap();
-    let (mode1, val1) = actor1.get_info().await.unwrap().get().await.unwrap();
-    assert_eq!(mode1, "default");
-    assert_eq!(val1, 0);
-
-    // Test custom constructor
-    let actor2 = MultiConstructorActor::remote_with_value(42).await.unwrap();
-    let (mode2, val2) = actor2.get_info().await.unwrap().get().await.unwrap();
-    assert_eq!(mode2, "custom");
-    assert_eq!(val2, 42);
+        // Test custom constructor
+        let actor2 = MultiConstructorActor::remote_with_value(42).await.unwrap();
+        let (mode2, val2) = actor2.get_info().await.unwrap().get().await.unwrap();
+        assert_eq!(mode2, "custom");
+        assert_eq!(val2, 42);
+    })
+    .await;
 }

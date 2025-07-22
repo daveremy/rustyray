@@ -114,25 +114,32 @@ async fn main() -> Result<()> {
 - Memory limits and automatic LRU eviction
 - Reference counting infrastructure
 
-**Phase 4.5: Universal Object Sharing** ✨ New!
+**Phase 4.5: Universal Object Sharing**
 - **Unified ObjectRef**: Actors and tasks now share objects seamlessly
 - **Ray-style API**: Global `ray::put()` and `ray::get()` functions
 - **Automatic storage**: Task results automatically stored in object store
 - **Error propagation**: Errors stored and retrieved just like values
 - **Actor data sharing**: Actors can share large objects efficiently
 
+**Phase 5: Runtime Architecture & Test Infrastructure** ✨ New!
+- **Re-initializable Runtime**: Proper lifecycle with init/shutdown/reinit
+- **Test Infrastructure**: `with_test_runtime()` fixture for test isolation
+- **Graceful Shutdown**: Explicit subsystem shutdown in correct order
+- **Lock Resilience**: Handles poisoned locks gracefully
+- **84 tests passing**: Comprehensive test coverage
+
 ### 🚀 Currently Working On
 
-**Phase 5: Reference Counting & Memory Management**
-- Automatic reference counting for ObjectRefs
-- Safe memory reclamation when objects are no longer needed
-- Memory leak detection and prevention
+**Phase 6: Garbage Collection & Production Features**
+- Reference counting for automatic memory management
+- Metrics and monitoring integration
+- Health check endpoints
+- Resource usage limits
 
 ### 📅 Future Plans
 
-- **Phase 6**: Metadata & Error Enhancement
 - **Phase 7**: Performance Optimizations
-- **Phase 8**: Distributed Foundation
+- **Phase 8**: Distributed Foundation  
 - **Phase 9**: Production Features
 
 ## Getting Started
@@ -251,8 +258,10 @@ async fn main() -> rustyray::error::Result<()> {
 git clone https://github.com/daveremy/rustyray
 cd rustyray
 
-# Run tests
-cargo test
+# Run tests (must be single-threaded for runtime isolation)
+cargo test -- --test-threads=1
+# or use the Makefile
+make test
 
 # Run examples (new macro API)
 cargo run --example macro_demo

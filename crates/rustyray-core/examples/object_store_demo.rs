@@ -168,7 +168,7 @@ async fn demonstrate_with_tasks(task_system: &TaskSystem) -> Result<()> {
     println!("--------------------------------");
 
     // Register a processing function
-    task_system.register_function("process_dataset", |args| {
+    task_system.register_function("process_dataset", |args, _context| {
         Box::pin(async move {
             if args.len() != 1 {
                 return Err(rustyray_core::RustyRayError::Internal(

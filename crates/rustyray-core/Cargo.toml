@@ -5,6 +5,7 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+build = "build.rs"
 
 [dependencies]
 tokio.workspace = true
@@ -18,6 +19,7 @@ thiserror.workspace = true
 linkme.workspace = true
 clru.workspace = true
 num_cpus.workspace = true
+futures.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true
@@ -25,7 +27,9 @@ proptest.workspace = true
 pretty_assertions.workspace = true
 anyhow.workspace = true
 rustyray-macros.workspace = true
+rustyray-core = { path = ".", features = ["test-utils"] }
 
 [features]
 default = ["serde"]
 serde = ["dep:serde", "dashmap/serde"]
+test-utils = []

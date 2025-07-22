@@ -45,193 +45,205 @@ impl Actor for TestActor {
 
 #[tokio::test]
 async fn test_task_system_idempotent_shutdown() {
-    let actor_system = Arc::new(ActorSystem::new());
-    let task_system = Arc::new(TaskSystem::new(actor_system.clone()));
+    crate::test_utils::with_test_runtime(|| async {
+        let runtime = crate::runtime::global().unwrap();
+        let actor_system = runtime.actor_system();
+        let task_system = runtime.task_system();
 
-    // Register a function
-    task_system
-        .register_function(
-            "test",
-            task_function!(|x: i32| async move { Ok::<i32, crate::error::RustyRayError>(x * 2) }),
-        )
-        .unwrap();
+        // Register a function
+        task_system
+            .register_function(
+                "test",
+                task_function!(|x: i32| async move { Ok::<i32, crate::error::RustyRayError>(x * 2) }),
+            )
+            .unwrap();
 
-    // Submit a task
-    let result_ref = TaskBuilder::new("test")
-        .arg(21)
-        .submit::<i32>(&task_system)
-        .await
-        .unwrap();
+        // Submit a task
+        let result_ref = TaskBuilder::new("test")
+            .arg(21)
+            .submit::<i32>(&task_system)
+            .await
+            .unwrap();
 
-    // Get result
-    let result = result_ref.get().await.unwrap();
-    assert_eq!(result, 42);
+        // Get result
+        let result = result_ref.get().await.unwrap();
+        assert_eq!(result, 42);
 
-    // First shutdown
-    task_system.shutdown().await.unwrap();
+        // First shutdown
+        task_system.shutdown().await.unwrap();
 
-    // Second shutdown should also succeed (idempotent)
-    task_system.shutdown().await.unwrap();
+        // Second shutdown should also succeed (idempotent)
+        task_system.shutdown().await.unwrap();
 
-    // Third shutdown should also succeed
-    task_system.shutdown().await.unwrap();
+        // Third shutdown should also succeed
+        task_system.shutdown().await.unwrap();
 
-    // Actor system shutdown should also be idempotent
-    actor_system.shutdown().await.unwrap();
-    actor_system.shutdown().await.unwrap();
+        // Actor system shutdown should also be idempotent
+        actor_system.shutdown().await.unwrap();
+        actor_system.shutdown().await.unwrap();
+    }).await;
 }
 
 #[tokio::test]
 async fn test_concurrent_shutdown() {
-    let actor_system = Arc::new(ActorSystem::new());
-    let task_system = Arc::new(TaskSystem::new(actor_system.clone()));
+    crate::test_utils::with_test_runtime(|| async {
+        let runtime = crate::runtime::global().unwrap();
+        let actor_system = runtime.actor_system();
+        let task_system = runtime.task_system();
 
-    // Register a function
-    task_system
-        .register_function(
-            "sleep",
-            task_function!(|ms: u64| async move {
-                time::sleep(Duration::from_millis(ms)).await;
-                Ok::<(), crate::error::RustyRayError>(())
-            }),
-        )
-        .unwrap();
-
-    // Submit some tasks
-    for i in 0..5 {
-        let _ = TaskBuilder::new("sleep")
-            .arg(50u64 + i * 10)
-            .submit::<()>(&task_system)
-            .await
+        // Register a function
+        task_system
+            .register_function(
+                "sleep",
+                task_function!(|ms: u64| async move {
+                    time::sleep(Duration::from_millis(ms)).await;
+                    Ok::<(), crate::error::RustyRayError>(())
+                }),
+            )
             .unwrap();
-    }
 
-    // Spawn multiple concurrent shutdown tasks
-    let mut handles = vec![];
-    for _ in 0..5 {
-        let ts = task_system.clone();
-        let as_ = actor_system.clone();
-        handles.push(tokio::spawn(async move {
-            ts.shutdown().await.unwrap();
-            as_.shutdown().await.unwrap();
-        }));
-    }
+        // Submit some tasks
+        for i in 0..5 {
+            let _ = TaskBuilder::new("sleep")
+                .arg(50u64 + i * 10)
+                .submit::<()>(&task_system)
+                .await
+                .unwrap();
+        }
 
-    // All should complete successfully
-    for handle in handles {
-        handle.await.unwrap();
-    }
+        // Spawn multiple concurrent shutdown tasks
+        let mut handles = vec![];
+        for _ in 0..5 {
+            let ts = task_system.clone();
+            let as_ = actor_system.clone();
+            handles.push(tokio::spawn(async move {
+                ts.shutdown().await.unwrap();
+                as_.shutdown().await.unwrap();
+            }));
+        }
+
+        // All should complete successfully
+        for handle in handles {
+            handle.await.unwrap();
+        }
+    }).await;
 }
 
 #[tokio::test]
 async fn test_no_new_tasks_after_shutdown() {
-    let actor_system = Arc::new(ActorSystem::new());
-    let task_system = Arc::new(TaskSystem::new(actor_system.clone()));
+    crate::test_utils::with_test_runtime(|| async {
+        let runtime = crate::runtime::global().unwrap();
+        let task_system = runtime.task_system();
 
-    // Register a function
-    task_system
-        .register_function(
-            "test",
-            task_function!(|x: i32| async move { Ok::<i32, crate::error::RustyRayError>(x) }),
-        )
-        .unwrap();
+        // Register a function
+        task_system
+            .register_function(
+                "test",
+                task_function!(|x: i32| async move { Ok::<i32, crate::error::RustyRayError>(x) }),
+            )
+            .unwrap();
 
-    // Shutdown
-    task_system.shutdown().await.unwrap();
+        // Shutdown
+        task_system.shutdown().await.unwrap();
 
-    // Try to submit a task - should fail
-    let result = TaskBuilder::new("test")
-        .arg(42)
-        .submit::<i32>(&task_system)
-        .await;
+        // Try to submit a task - should fail
+        let result = TaskBuilder::new("test")
+            .arg(42)
+            .submit::<i32>(&task_system)
+            .await;
 
-    assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("shutting down"));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("shutting down"));
+    }).await;
 }
 
 #[tokio::test]
 async fn test_no_new_actors_after_shutdown() {
-    let actor_system = Arc::new(ActorSystem::new());
+    crate::test_utils::with_test_runtime(|| async {
+        let runtime = crate::runtime::global().unwrap();
+        let actor_system = runtime.actor_system();
 
-    // Create an actor before shutdown
-    let ops1 = Arc::new(AtomicUsize::new(0));
-    let on_stop_notify = TestSync::notification();
-    let actor1 = TestActor {
-        operations: ops1.clone(),
-        on_stop_notify: Some(on_stop_notify.clone()),
-    };
-    let actor_ref = actor_system.create_actor(actor1).await.unwrap();
+        // Create an actor before shutdown
+        let ops1 = Arc::new(AtomicUsize::new(0));
+        let on_stop_notify = TestSync::notification();
+        let actor1 = TestActor {
+            operations: ops1.clone(),
+            on_stop_notify: Some(on_stop_notify.clone()),
+        };
+        let actor_ref = actor_system.create_actor(actor1).await.unwrap();
 
-    // Send a message - should work
-    actor_ref.send(Box::new(())).await.unwrap();
+        // Send a message - should work
+        actor_ref.send(Box::new(())).await.unwrap();
 
-    // Shutdown should wait for on_stop to complete
-    actor_system.shutdown().await.unwrap();
+        // Shutdown should wait for on_stop to complete
+        actor_system.shutdown().await.unwrap();
 
-    // No sleep needed - shutdown should have waited for on_stop
-    // Check that on_stop was called (adds 1000)
-    let final_ops = ops1.load(Ordering::SeqCst);
-    assert!(final_ops >= 1001); // At least 1 operation + 1000 from on_stop
+        // No sleep needed - shutdown should have waited for on_stop
+        // Check that on_stop was called (adds 1000)
+        let final_ops = ops1.load(Ordering::SeqCst);
+        assert!(final_ops >= 1001); // At least 1 operation + 1000 from on_stop
 
-    // Try to create a new actor - should fail
-    let ops2 = Arc::new(AtomicUsize::new(0));
-    let actor2 = TestActor {
-        operations: ops2,
-        on_stop_notify: None,
-    };
-    let result = actor_system.create_actor(actor2).await;
+        // Try to create a new actor - should fail
+        let ops2 = Arc::new(AtomicUsize::new(0));
+        let actor2 = TestActor {
+            operations: ops2,
+            on_stop_notify: None,
+        };
+        let result = actor_system.create_actor(actor2).await;
 
-    assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("shutting down"));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("shutting down"));
+    }).await;
 }
 
 #[tokio::test]
 async fn test_graceful_actor_shutdown() {
-    let actor_system = Arc::new(ActorSystem::new());
-    let operations = Arc::new(AtomicUsize::new(0));
+    crate::test_utils::with_test_runtime(|| async {
+        let runtime = crate::runtime::global().unwrap();
+        let actor_system = runtime.actor_system();
+        let operations = Arc::new(AtomicUsize::new(0));
 
-    // Create multiple actors
-    let mut refs = vec![];
-    for _ in 0..3 {
-        let actor = TestActor {
-            operations: operations.clone(),
-            on_stop_notify: None,
-        };
-        let actor_ref = actor_system.create_actor(actor).await.unwrap();
-        refs.push(actor_ref);
-    }
-
-    // Send messages to all actors
-    for actor_ref in &refs {
-        for _ in 0..5 {
-            actor_ref.send(Box::new(())).await.unwrap();
+        // Create multiple actors
+        let mut refs = vec![];
+        for _ in 0..3 {
+            let actor = TestActor {
+                operations: operations.clone(),
+                on_stop_notify: None,
+            };
+            let actor_ref = actor_system.create_actor(actor).await.unwrap();
+            refs.push(actor_ref);
         }
-    }
 
-    // Shutdown should wait for all messages to be processed
-    actor_system.shutdown().await.unwrap();
+        // Send messages to all actors
+        for actor_ref in &refs {
+            for _ in 0..5 {
+                actor_ref.send(Box::new(())).await.unwrap();
+            }
+        }
 
-    // All actors should have processed their messages and called on_stop
-    let final_ops = operations.load(Ordering::SeqCst);
-    // 3 actors * (5 operations + 1000 from on_stop) = 3015
-    assert_eq!(final_ops, 3015);
+        // Shutdown should wait for all messages to be processed
+        actor_system.shutdown().await.unwrap();
+
+        // All actors should have processed their messages and called on_stop
+        let final_ops = operations.load(Ordering::SeqCst);
+        // 3 actors * (5 operations + 1000 from on_stop) = 3015
+        assert_eq!(final_ops, 3015);
+    }).await;
 }
 
 #[tokio::test]
 async fn test_task_completion_before_shutdown() {
-    let actor_system = Arc::new(ActorSystem::new());
-    // Use a system with longer timeout for this test
-    let task_system = Arc::new(TaskSystem::with_timeout(
-        actor_system.clone(),
-        Duration::from_secs(1),
-    ));
+    crate::test_utils::with_test_runtime(|| async {
+        let runtime = crate::runtime::global().unwrap();
+        let actor_system = runtime.actor_system();
+        let task_system = runtime.task_system();
 
     // Create a barrier to ensure all tasks have started
     let task_started = Arc::new(tokio::sync::Barrier::new(6)); // 5 tasks + 1 main thread
 
     // Register a slow function that signals when it starts
     let barrier_clone = task_started.clone();
-    let slow_fn = move |args: Vec<Vec<u8>>| {
+    let slow_fn = move |args: Vec<Vec<u8>>, _context: crate::task::context::DeserializationContext| {
         let barrier = barrier_clone.clone();
         Box::pin(async move {
             if args.len() != 1 {
@@ -282,15 +294,18 @@ async fn test_task_completion_before_shutdown() {
 
     // Shutdown should have completed
     shutdown_handle.await.unwrap();
+    }).await;
 }
 
 #[tokio::test]
 async fn test_shared_system_references() {
-    // This test verifies that the new shutdown API works well with
-    // multiple Arc references to the systems
+    crate::test_utils::with_test_runtime(|| async {
+        // This test verifies that the new shutdown API works well with
+        // multiple Arc references to the systems
 
-    let actor_system = Arc::new(ActorSystem::new());
-    let task_system = Arc::new(TaskSystem::new(actor_system.clone()));
+        let runtime = crate::runtime::global().unwrap();
+        let actor_system = runtime.actor_system();
+        let task_system = runtime.task_system();
 
     // Create multiple references
     let ts_ref1 = task_system.clone();
@@ -335,4 +350,5 @@ async fn test_shared_system_references() {
     drop(as_ref2);
     drop(task_system);
     drop(actor_system);
+    }).await;
 }

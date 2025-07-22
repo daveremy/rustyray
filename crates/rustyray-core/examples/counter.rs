@@ -1,6 +1,7 @@
 use async_trait::async_trait;
-use rustyray_core::actor::{Actor, ActorSystem};
+use rustyray_core::actor::Actor;
 use rustyray_core::error::Result;
+use rustyray_core::runtime;
 use std::any::Any;
 
 /// A simple counter actor that maintains internal state.
@@ -63,8 +64,10 @@ impl Actor for Counter {
 async fn main() -> Result<()> {
     println!("Starting Counter actor example...\n");
 
-    // Create the actor system
-    let system = ActorSystem::new();
+    // Initialize the runtime
+    runtime::init()?;
+    let rt = runtime::global()?;
+    let system = rt.actor_system();
 
     // Create a counter actor
     let counter = Counter { count: 0 };
@@ -115,7 +118,7 @@ async fn main() -> Result<()> {
 
     // Shutdown the system
     println!("\n--- Shutting down ---");
-    system.shutdown().await?;
+    runtime::shutdown()?;
 
     println!("\nExample completed successfully!");
     Ok(())

@@ -6,7 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 RustyRay is an exploration of implementing Ray Core (the distributed actor system) in Rust. Ray is an open-source distributed computing framework originally written in C++, Java, and Python, used for scaling Python and AI applications.
 
-Original Ray project: https://github.com/ray-project/ray
+- Original Ray project: https://github.com/ray-project/ray
+- RustyRay repository: https://github.com/daveremy/rustyray
 
 ## Development Setup
 

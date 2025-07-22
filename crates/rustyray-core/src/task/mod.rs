@@ -35,15 +35,17 @@ use std::future::Future;
 use std::pin::Pin;
 
 mod cancellation;
+pub mod context;
 mod manager;
 mod registry;
-pub(crate) mod serde_utils;
+pub mod serde_utils;
 mod spec;
 mod system;
 mod test_builder_errors;
 mod test_cancellation_integration;
 mod test_error_propagation;
 mod test_objectref_args;
+mod test_objectref_passing;
 mod test_objectref_sharing;
 
 pub use manager::{TaskManager, TaskManagerConfig};

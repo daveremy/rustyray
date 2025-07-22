@@ -5,9 +5,9 @@ This document outlines the development plan for RustyRay, a Rust implementation 
 ## Current Status
 
 - **GitHub Repository**: https://github.com/daveremy/rustyray
-- **Latest Version**: 0.4.5 (Phase 4.5 Complete)
-- **Current Focus**: Phase 5 - Reference Counting & Memory Management
-- **Next Release**: 0.5.0 (Reference Counting)
+- **Latest Version**: 0.5.0 (Phase 5 Complete)
+- **Current Focus**: Phase 6 - Garbage Collection & Production Features
+- **Next Release**: 0.6.0 (Production Features)
 
 ## Progress Summary
 
@@ -57,6 +57,15 @@ This document outlines the development plan for RustyRay, a Rust implementation 
   - All 60 tests passing (fixed 4 failing tests)
   - Comprehensive Ray comparison analysis completed
 
+- **Phase 5: Runtime Architecture & Test Infrastructure** ✅ Completed (v0.5.0)
+  - Refactored runtime from OnceCell to RwLock<Option<Arc<Runtime>>>
+  - Made runtime re-initializable for proper test isolation
+  - Created with_test_runtime() fixture with panic safety
+  - Fixed ObjectRef resolution bug in ray::put()
+  - Added graceful shutdown with explicit subsystem ordering
+  - Implemented poisoned lock recovery for resilience
+  - All 84 tests passing (up from 78)
+
 ## Overview
 
 Based on our analysis of Ray's C++ implementation and comprehensive code review, we'll build RustyRay in phases:
@@ -66,8 +75,8 @@ Based on our analysis of Ray's C++ implementation and comprehensive code review,
 3. **Macro System for API Ergonomics** ✅ (Core Complete - 70% boilerplate reduction achieved!)
 4. **Local Shared Memory Object Store** ✅ (Completed)
 4.5. **Actor-Object Store Integration** ✅ (Completed)
-5. **Reference Counting & Memory Management** 🚀 (Current Focus)
-6. **Metadata & Error Enhancement**
+5. **Runtime Architecture & Test Infrastructure** ✅ (Completed)
+6. **Garbage Collection & Production Features** 🚀 (Current Focus)
 7. **Performance Optimizations**
 8. **Distributed Foundation**
 9. **Production Features**
@@ -273,83 +282,80 @@ Successfully bridged the gap between actors, tasks, and the object store for sea
 
 ---
 
-## Phase 5: Reference Counting & Memory Management 🧮 (Current Focus)
+## Phase 5: Runtime Architecture & Test Infrastructure ✅ (Completed)
 
-Implement distributed reference counting to enable safe memory management and prevent premature object eviction.
+Major refactoring of the runtime architecture to fix concurrent test execution issues while maintaining Ray-compatible design.
 
-### 5.1 Local Reference Counting
-- [ ] Add reference counting to ObjectRef lifecycle (new/drop)
-- [ ] Implement atomic reference counters in object store
-- [ ] Track local references within a worker
-- [ ] Update ObjectRef Clone to increment count
+### 5.1 Runtime Architecture Refactor ✅
+- [x] Changed from OnceCell to RwLock<Option<Arc<Runtime>>>
+- [x] Made runtime re-initializable after shutdown
+- [x] Maintained thread safety with proper lifecycle
+- [x] Added runtime::shutdown_async() for graceful shutdown
 
-### 5.2 Task Reference Tracking
-- [ ] Track ObjectRefs passed to tasks
-- [ ] Increment count when task submitted
-- [ ] Decrement when task completes
-- [ ] Handle task failure cases
+### 5.2 Test Infrastructure ✅
+- [x] Created with_test_runtime() fixture with panic safety
+- [x] Used futures::FutureExt::catch_unwind for isolation
+- [x] Migrated all tests to new fixture pattern
+- [x] Added concurrent test detection with clear errors
 
-### 5.3 Eviction Safety
-- [ ] Modify LRU eviction to check reference counts
-- [ ] Only evict objects with zero references
-- [ ] Add eviction callbacks for cleanup
-- [ ] Implement memory pressure handling
+### 5.3 Critical Bug Fixes ✅
+- [x] Fixed ray::put() to use TaskSystem for dependencies
+- [x] Updated integration tests for current behavior
+- [x] Added proper subsystem shutdown ordering
+- [x] Implemented poisoned lock recovery
 
-### 5.4 Metrics & Debugging
-- [ ] Add reference count to object store statistics
-- [ ] Debug logging for reference count changes
-- [ ] Memory leak detection tools
-- [ ] Performance impact benchmarks
+### 5.4 Code Quality ✅
+- [x] Comprehensive code review with multiple agents
+- [x] Fixed all high-priority issues
+- [x] 84 tests passing (up from 78)
+- [x] Documentation of architecture decisions
 
-### 5.5 Documentation
-- [ ] API documentation for reference counting behavior
-- [ ] Migration guide for existing code
-- [ ] Best practices for avoiding leaks
-
-**Deliverable**: Safe automatic memory management with reference counting
+**Deliverable**: Robust runtime with proper test isolation
 
 ---
 
-## Phase 6: Metadata & Error Enhancement 📋
+## Phase 6: Garbage Collection & Production Features 🏭 (Current Focus)
 
-Enhance object metadata and error handling to match Ray's production capabilities.
+Based on Phase 5 code review feedback, implement critical production features starting with garbage collection.
 
-### 6.1 Structured Metadata
-- [ ] Separate data and metadata buffers in RayObject
-- [ ] Add serialization format tracking
-- [ ] Include original type information
-- [ ] Support for cross-language metadata
+### 6.1 Reference Counting & Garbage Collection (High Priority)
+- [ ] Add reference counting to ObjectRef lifecycle (new/drop)
+- [ ] Implement atomic reference counters in object store
+- [ ] Track ObjectRefs passed to tasks and actors
+- [ ] Periodic cleanup of orphaned objects
+- [ ] Memory pressure handling and eviction policies
 
-### 6.2 Comprehensive Error Types
-- [ ] Create RayErrorType enum matching Ray's 13 types
-- [ ] Implement error objects with proper metadata
-- [ ] Add stack trace capture for errors
-- [ ] Improve error messages with context
+### 6.2 Production Monitoring (High Priority)
+- [ ] Metrics collection (operations, latency, memory usage)
+- [ ] Health check endpoints for runtime status
+- [ ] Performance monitoring with configurable thresholds
+- [ ] Integration with standard monitoring tools (Prometheus)
 
-### 6.3 Object Metadata
-- [ ] Track object creation time
-- [ ] Add object size metadata
-- [ ] Include task/actor origin information
-- [ ] Support nested object references
+### 6.3 Enhanced Error Handling (Medium Priority)
+- [ ] Retry mechanisms for transient failures
+- [ ] Richer error context (task ID, actor ID, stack traces)
+- [ ] Error recovery strategies for different failure types
+- [ ] Create RayErrorType enum matching Ray's error types
 
-### 6.4 Testing & Migration
-- [ ] Update all error handling code
-- [ ] Migrate from string errors to typed errors
-- [ ] Add error propagation tests
-- [ ] Document error handling patterns
+### 6.4 Resource Management (Medium Priority)
+- [ ] Memory limits and backpressure mechanisms
+- [ ] CPU/GPU resource tracking and limits
+- [ ] Graceful degradation under resource pressure
+- [ ] Work queue limits and overflow handling
 
-### 6.5 Deferred Phase 3 Items
+### 6.5 Performance Optimizations (Low Priority)
+- [ ] Replace std::sync with parking_lot for better performance
+- [ ] Cache runtime references to reduce lock contention
+- [ ] Profile and optimize hot paths
+- [ ] Benchmark suite for regression testing
+
+### 6.6 Deferred Phase 3 Items
 - [ ] Performance benchmarks for macro overhead (<5% target)
 - [ ] Enhanced error messages with syn::Error::new_spanned
 - [ ] Generic support for remote functions
 - [ ] Comprehensive rustdoc documentation
 
-### 6.6 API Documentation
-- [ ] Document metadata format and usage
-- [ ] Error handling best practices
-- [ ] Migration guide from Phase 4.5
-
-**Deliverable**: Production-quality metadata and error handling
+**Deliverable**: Production-ready runtime with GC, monitoring, and resource management
 
 ---
 
@@ -481,8 +487,8 @@ Complete RustyRay with production-ready features and polish.
 - **Phase 3**: API as simple as Ray's Python API (70% less boilerplate) ✅
 - **Phase 4**: Can share large objects efficiently (<10ms latency) ✅
 - **Phase 4.5**: Unified object store with actor-task sharing ✅
-- **Phase 5**: No memory leaks, safe automatic eviction
-- **Phase 6**: Rich error types and metadata support
+- **Phase 5**: Robust runtime with proper test isolation ✅
+- **Phase 6**: No memory leaks, production monitoring, resource limits
 - **Phase 7**: 10x performance improvement on benchmarks
 - **Phase 8**: Can transfer objects between nodes
 - **Phase 9**: Production-ready with <1% failure rate
@@ -492,11 +498,11 @@ Complete RustyRay with production-ready features and polish.
 - **Phase 3**: 2 weeks (January 2025) ✅ Completed
 - **Phase 4**: 2 weeks (January 2025) ✅ Completed  
 - **Phase 4.5**: 1 week (February 2025) ✅ Completed
-- **Phase 5**: 1 week (February 2025) 🚀 Current - Reference Counting
-- **Phase 6**: 1 week (February 2025) - Metadata Enhancement
-- **Phase 7**: 2 weeks (February 2025) - Performance
+- **Phase 5**: 1 week (February 2025) ✅ Completed - Runtime Architecture
+- **Phase 6**: 2 weeks (February 2025) 🚀 Current - GC & Production Features
+- **Phase 7**: 2 weeks (March 2025) - Performance
 - **Phase 8**: 3 weeks (March 2025) - Distributed Foundation
-- **Phase 9**: 4 weeks (March-April 2025) - Production Features
+- **Phase 9**: 4 weeks (April 2025) - Production Features
 - **Version 1.0**: Q2 2025
 
 ## Technical Decisions Made
@@ -511,6 +517,9 @@ Complete RustyRay with production-ready features and polish.
 8. **Type Safety**: Type parameter T in ObjectRef, runtime checking in store
 9. **Error Storage**: Errors stored in object store with special markers
 10. **API Design**: Ray-compatible put/get with Rust type safety
+11. **Runtime Architecture**: Re-initializable with RwLock<Option<Arc<Runtime>>>
+12. **Test Infrastructure**: with_test_runtime() fixture for isolation
+13. **Lock Handling**: Graceful poisoned lock recovery
 
 ## Open Questions
 
@@ -521,6 +530,9 @@ Complete RustyRay with production-ready features and polish.
 5. **Performance Target**: Match Ray or leverage Rust for better performance?
 6. **Protocol Compatibility**: Binary compatible with Ray or Rust-native?
 7. **Cluster Management**: Kubernetes-native or custom orchestration?
+8. **Monitoring Integration**: OpenTelemetry, Prometheus, or custom metrics?
+9. **Lock Library**: Switch to parking_lot for performance?
+10. **Test Concurrency**: Accept single-threaded tests or find alternative?
 
 ## Converting to GitHub Issues
 

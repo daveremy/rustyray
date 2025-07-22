@@ -1,7 +1,7 @@
 //! Example demonstrating task cancellation and timeout features
 
-use rustyray_core::actor::ActorSystem;
 use rustyray_core::error::Result;
+use rustyray_core::runtime;
 use rustyray_core::task::{TaskBuilder, TaskSystem};
 use rustyray_core::task_function;
 use std::sync::Arc;
@@ -12,8 +12,12 @@ use tokio::time;
 async fn main() -> Result<()> {
     println!("=== RustyRay Task Cancellation Example ===\n");
 
-    // Create systems with 500ms timeout
-    let actor_system = Arc::new(ActorSystem::new());
+    // Initialize the runtime
+    runtime::init()?;
+    let rt = runtime::global()?;
+    let actor_system = rt.actor_system();
+    
+    // Create a custom task system with timeout for this example
     let task_system = Arc::new(TaskSystem::with_timeout(
         actor_system.clone(),
         Duration::from_millis(500),
@@ -147,7 +151,7 @@ async fn main() -> Result<()> {
     // Shutdown
     println!("\n6. Shutting down...");
     task_system.shutdown().await?;
-    actor_system.shutdown().await?;
+    runtime::shutdown()?;
 
     println!("\n✓ Cancellation example completed successfully!");
     println!("  Key takeaways:");

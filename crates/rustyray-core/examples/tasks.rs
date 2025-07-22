@@ -7,9 +7,11 @@
 //! - Integration with the actor system
 
 use async_trait::async_trait;
-use rustyray_core::actor::{Actor, ActorSystem};
+use rustyray_core::actor::Actor;
 use rustyray_core::error::Result;
-use rustyray_core::task::{ObjectRef, TaskBuilder, TaskSystem};
+use rustyray_core::object_ref::ObjectRef;
+use rustyray_core::runtime;
+use rustyray_core::task::{TaskBuilder, TaskSystem};
 use rustyray_core::task_function;
 use std::any::Any;
 use std::sync::Arc;
@@ -54,9 +56,11 @@ impl Actor for Coordinator {
 async fn main() -> Result<()> {
     println!("=== RustyRay Task System Example ===\n");
 
-    // Create the actor and task systems
-    let actor_system = Arc::new(ActorSystem::new());
-    let task_system = Arc::new(TaskSystem::new(actor_system.clone()));
+    // Initialize the runtime
+    runtime::init()?;
+    let rt = runtime::global()?;
+    let actor_system = rt.actor_system();
+    let task_system = rt.task_system();
 
     // Register task functions
     println!("1. Registering task functions...");
@@ -181,9 +185,7 @@ async fn main() -> Result<()> {
 
     // Shutdown
     println!("7. Shutting down...");
-    // Call shutdown on the systems directly (no need to unwrap Arc)
-    task_system.shutdown().await?;
-    actor_system.shutdown().await?;
+    runtime::shutdown()?;
 
     println!("\n✓ Example completed successfully!");
     Ok(())

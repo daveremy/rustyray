@@ -1,0 +1,9 @@
+[alias]
+# Convenience aliases for RustyRay development
+# Tests must run single-threaded due to global runtime
+test-st = "test -- --test-threads=1"
+t = "test -- --test-threads=1"
+
+# Package-specific test aliases
+test-core = "test -p rustyray-core -- --test-threads=1"
+test-macros = "test -p rustyray-macros -- --test-threads=1"

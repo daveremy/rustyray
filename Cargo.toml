@@ -3,7 +3,7 @@ members = ["crates/*"]
 resolver = "2"
 
 [workspace.package]
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 authors = ["RustyRay Contributors"]
 license = "MIT OR Apache-2.0"
@@ -23,6 +23,7 @@ thiserror = "2.0"
 anyhow = "1.0"
 clru = "0.6"
 num_cpus = "1.16"
+futures = "0.3"
 
 # Macro dependencies
 syn = { version = "2.0", features = ["full", "extra-traits"] }

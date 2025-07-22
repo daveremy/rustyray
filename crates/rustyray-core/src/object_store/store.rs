@@ -149,7 +149,7 @@ impl InMemoryStore {
         };
 
         // Store in cache
-        let mut cache = self.cache.lock().unwrap();
+        let mut cache = self.cache.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let result = cache.put_with_weight(id, stored.clone());
         drop(cache);
 
@@ -223,7 +223,7 @@ impl ObjectStore for InMemoryStore {
         };
 
         // Store in cache - CLRU will automatically evict if needed
-        let mut cache = self.cache.lock().unwrap();
+        let mut cache = self.cache.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
 
         // Check what was evicted (if anything)
         let result = cache.put_with_weight(id, stored.clone());
@@ -277,7 +277,7 @@ impl ObjectStore for InMemoryStore {
         }
 
         // Check cache
-        let mut cache = self.cache.lock().unwrap();
+        let mut cache = self.cache.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         if let Some(entry) = cache.get(&id) {
             self.stats.hit_count.fetch_add(1, Ordering::Relaxed);
 
@@ -309,7 +309,7 @@ impl ObjectStore for InMemoryStore {
         }
 
         // Check cache
-        let mut cache = self.cache.lock().unwrap();
+        let mut cache = self.cache.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         if let Some(entry) = cache.get(&id) {
             self.stats.hit_count.fetch_add(1, Ordering::Relaxed);
             Ok(Some(entry.data.clone()))
@@ -324,7 +324,7 @@ impl ObjectStore for InMemoryStore {
             return Ok(true);
         }
 
-        let cache = self.cache.lock().unwrap();
+        let cache = self.cache.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         Ok(cache.peek(&id).is_some())
     }
 
@@ -334,7 +334,7 @@ impl ObjectStore for InMemoryStore {
             return Ok(Some(entry.metadata.as_ref().clone()));
         }
 
-        let cache = self.cache.lock().unwrap();
+        let cache = self.cache.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         if let Some(entry) = cache.peek(&id) {
             // Clone the metadata
             Ok(Some(entry.metadata.as_ref().clone()))
@@ -350,7 +350,7 @@ impl ObjectStore for InMemoryStore {
         }
 
         // Try to get from cache first (to ensure it exists)
-        let mut cache = self.cache.lock().unwrap();
+        let mut cache = self.cache.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         if let Some(entry) = cache.pop(&id) {
             // Mark as pinned
             entry.metadata.is_pinned.store(true, Ordering::Relaxed);
@@ -378,7 +378,7 @@ impl ObjectStore for InMemoryStore {
 
         // Try to put it in the cache BEFORE removing from pinned
         // This ensures we don't lose the object if cache insertion fails
-        let mut cache = self.cache.lock().unwrap();
+        let mut cache = self.cache.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
 
         let result = cache.put_with_weight(id, entry_clone.clone());
         drop(cache);
@@ -427,7 +427,7 @@ impl ObjectStore for InMemoryStore {
     async fn stats(&self) -> StoreStats {
         // Get the actual weight and count from CLRU cache
         let (cache_weight, cache_count) = {
-            let cache = self.cache.lock().unwrap();
+            let cache = self.cache.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
             (cache.weight(), cache.len())
         };
 
@@ -472,7 +472,7 @@ impl ObjectStore for InMemoryStore {
         }
 
         // Not in pinned, so lock the cache and check there
-        let mut cache = self.cache.lock().unwrap();
+        let mut cache = self.cache.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         if let Some(_entry) = cache.pop(&id) {
             // Found in cache, remove it
             drop(cache); // Release lock early
@@ -500,7 +500,7 @@ impl ObjectStore for InMemoryStore {
     async fn clear(&self) -> Result<()> {
         self.pinned.clear();
 
-        let mut cache = self.cache.lock().unwrap();
+        let mut cache = self.cache.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         cache.clear();
         drop(cache);
 

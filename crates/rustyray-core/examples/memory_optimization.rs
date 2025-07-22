@@ -1,19 +1,19 @@
 //! Example demonstrating memory optimization in dependency resolution
 
-use rustyray_core::actor::ActorSystem;
 use rustyray_core::error::Result;
-use rustyray_core::task::{TaskBuilder, TaskSystem};
+use rustyray_core::runtime;
+use rustyray_core::task::TaskBuilder;
 use rustyray_core::task_function;
-use std::sync::Arc;
 use std::time::Instant;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     println!("=== RustyRay Memory Optimization Demo ===\n");
 
-    // Create systems
-    let actor_system = Arc::new(ActorSystem::new());
-    let task_system = Arc::new(TaskSystem::new(actor_system.clone()));
+    // Initialize the runtime
+    runtime::init()?;
+    let rt = runtime::global()?;
+    let task_system = rt.task_system();
 
     // Register functions
     task_system.register_function(
@@ -100,8 +100,7 @@ async fn main() -> Result<()> {
 
     // Shutdown
     println!("\n5. Shutting down...");
-    task_system.shutdown().await?;
-    actor_system.shutdown().await?;
+    runtime::shutdown()?;
 
     println!("\n✓ Memory optimization demo completed!");
     println!("  Key optimizations:");

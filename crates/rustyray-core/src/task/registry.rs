@@ -5,6 +5,7 @@
 //! and can be looked up by ID during task execution.
 
 use crate::error::{Result, RustyRayError};
+use crate::task::context::DeserializationContext;
 use crate::task::BoxFuture;
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
@@ -13,11 +14,14 @@ use std::sync::Arc;
 
 /// Type alias for a task function.
 ///
-/// Task functions take a vector of serialized arguments and return serialized results.
-/// Each argument is serialized individually, matching Ray's model.
-/// This allows us to handle functions with different signatures uniformly.
-pub type TaskFunction =
-    Arc<dyn Fn(Vec<Vec<u8>>) -> BoxFuture<'static, Result<Vec<u8>>> + Send + Sync>;
+/// Task functions take a vector of serialized arguments and a deserialization context,
+/// returning serialized results. Each argument is serialized individually, matching Ray's model.
+/// The context provides access to runtime resources needed during deserialization.
+pub type TaskFunction = Arc<
+    dyn Fn(Vec<Vec<u8>>, DeserializationContext) -> BoxFuture<'static, Result<Vec<u8>>>
+        + Send
+        + Sync,
+>;
 
 /// Unique identifier for a registered function.
 ///
@@ -70,7 +74,7 @@ impl FunctionRegistry {
     /// Register a function with the given ID
     pub fn register<F>(&self, id: FunctionId, function: F) -> Result<()>
     where
-        F: Fn(Vec<Vec<u8>>) -> BoxFuture<'static, Result<Vec<u8>>> + Send + Sync + 'static,
+        F: Fn(Vec<Vec<u8>>, DeserializationContext) -> BoxFuture<'static, Result<Vec<u8>>> + Send + Sync + 'static,
     {
         if self.functions.contains_key(&id) {
             return Err(RustyRayError::Internal(format!(
@@ -137,9 +141,10 @@ macro_rules! task_function {
     // Main implementation
     (|$($arg:ident : $arg_ty:ty),*| $body:expr) => {{
         use $crate::task::BoxFuture;
+        use $crate::task::context::DeserializationContext;
         use $crate::error::Result;
 
-        move |args: Vec<Vec<u8>>| -> BoxFuture<'static, Result<Vec<u8>>> {
+        move |args: Vec<Vec<u8>>, _context: DeserializationContext| -> BoxFuture<'static, Result<Vec<u8>>> {
             Box::pin(async move {
                 // Count the number of arguments expected
                 let expected_args = 0 $(+ {let _ = stringify!($arg); 1})*;
@@ -153,7 +158,6 @@ macro_rules! task_function {
                 // Deserialize each argument individually
                 #[allow(unused_mut, unused_variables)]
                 let mut arg_iter = args.into_iter();
-                let config = bincode::config::standard();
 
                 $(
                     let $arg: $arg_ty = {
@@ -161,10 +165,10 @@ macro_rules! task_function {
                             .ok_or_else(|| $crate::error::RustyRayError::Internal(
                                 "Missing argument".to_string()
                             ))?;
-                        bincode::serde::decode_from_slice(&arg_bytes, config)
-                            .map_err(|e| $crate::error::RustyRayError::Internal(
-                                format!("Failed to deserialize argument: {:?}", e)
-                            ))?.0
+                        
+                        // For now, just use standard deserialization
+                        // ObjectRef should be passed as TaskArg::ObjectRef, not serialized directly
+                        $crate::task::serde_utils::deserialize(&arg_bytes)?
                     };
                 )*
 
@@ -172,6 +176,7 @@ macro_rules! task_function {
                 let result = $body.await?;
 
                 // Serialize result
+                let config = bincode::config::standard();
                 bincode::serde::encode_to_vec(&result, config)
                     .map_err(|e| $crate::error::RustyRayError::Internal(
                         format!("Failed to serialize result: {:?}", e)
@@ -191,7 +196,7 @@ mod tests {
         let id = FunctionId::from("test_func");
 
         // Register a simple function
-        let func = |_args: Vec<Vec<u8>>| -> BoxFuture<'static, Result<Vec<u8>>> {
+        let func = |_args: Vec<Vec<u8>>, _context: DeserializationContext| -> BoxFuture<'static, Result<Vec<u8>>> {
             Box::pin(async move { Ok(vec![]) })
         };
 
@@ -212,7 +217,7 @@ mod tests {
         let id = FunctionId::from("add");
 
         // Register an add function
-        let func = |args: Vec<Vec<u8>>| -> BoxFuture<'static, Result<Vec<u8>>> {
+        let func = |args: Vec<Vec<u8>>, _context: DeserializationContext| -> BoxFuture<'static, Result<Vec<u8>>> {
             Box::pin(async move {
                 if args.len() != 2 {
                     return Err(RustyRayError::Internal("Expected 2 arguments".to_string()));
@@ -232,7 +237,9 @@ mod tests {
             crate::task::serde_utils::serialize(&10).unwrap(),
             crate::task::serde_utils::serialize(&20).unwrap(),
         ];
-        let result_bytes = task_func(args).await.unwrap();
+        let object_store = Arc::new(crate::object_store::InMemoryStore::new(crate::object_store::StoreConfig::default()));
+        let context = DeserializationContext::new(object_store);
+        let result_bytes = task_func(args, context).await.unwrap();
         let result: i32 = crate::task::serde_utils::deserialize(&result_bytes).unwrap();
 
         assert_eq!(result, 30);
@@ -258,7 +265,9 @@ mod tests {
             crate::task::serde_utils::serialize(&3).unwrap(),
             crate::task::serde_utils::serialize(&4).unwrap(),
         ];
-        let result_bytes = func(args).await.unwrap();
+        let object_store = Arc::new(crate::object_store::InMemoryStore::new(crate::object_store::StoreConfig::default()));
+        let context = DeserializationContext::new(object_store);
+        let result_bytes = func(args, context).await.unwrap();
         let result: i32 = crate::task::serde_utils::deserialize(&result_bytes).unwrap();
 
         assert_eq!(result, 12);

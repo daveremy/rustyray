@@ -6,6 +6,7 @@
 
 use crate::error::{Result, RustyRayError};
 use crate::object_store::{InMemoryStore, ObjectStore};
+use crate::task::context::{ContextualDeserialize, DeserializationContext};
 use crate::types::ObjectId;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt;
@@ -26,24 +27,37 @@ use std::task::{Context, Poll};
 /// The type parameter T provides compile-time type safety, but is erased
 /// at runtime when serialized.
 ///
-/// All ObjectRefs are backed by the object store for consistency.
+/// ObjectRefs are serializable and can be passed between tasks. The object
+/// store is accessed via the global runtime when needed.
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ObjectRef<T> {
     /// The unique ID of this object
     id: ObjectId,
-
-    /// Reference to the object store
-    store: Arc<InMemoryStore>,
+    
+    /// Optional reference to the object store (not serialized)
+    #[serde(skip)]
+    store: Option<Arc<InMemoryStore>>,
 
     /// Phantom data to track the type parameter
+    #[serde(skip)]
     _phantom: PhantomData<T>,
 }
 
 impl<T> ObjectRef<T> {
-    /// Create a new ObjectRef backed by the object store.
-    pub(crate) fn new(id: ObjectId, store: Arc<InMemoryStore>) -> Self {
+    /// Create a new ObjectRef from an object ID.
+    pub(crate) fn new(id: ObjectId) -> Self {
         ObjectRef {
             id,
-            store,
+            store: None,
+            _phantom: PhantomData,
+        }
+    }
+    
+    /// Create a new ObjectRef with a specific store.
+    pub(crate) fn with_store(id: ObjectId, store: Arc<InMemoryStore>) -> Self {
+        ObjectRef {
+            id,
+            store: Some(store),
             _phantom: PhantomData,
         }
     }
@@ -51,11 +65,6 @@ impl<T> ObjectRef<T> {
     /// Get the object ID
     pub fn id(&self) -> ObjectId {
         self.id
-    }
-
-    /// Get a reference to the object store
-    pub(crate) fn store(&self) -> &Arc<InMemoryStore> {
-        &self.store
     }
 }
 
@@ -65,6 +74,16 @@ impl<T: DeserializeOwned + Send + 'static> ObjectRef<T> {
     /// This can be called multiple times on clones of the same ObjectRef.
     /// In Ray, this is equivalent to `ray.get()`.
     pub async fn get(&self) -> Result<T> {
+        // Use the attached store if available, otherwise try global runtime
+        let store = if let Some(store) = &self.store {
+            store.clone()
+        } else {
+            // Fallback to global runtime
+            let runtime = crate::runtime::global()
+                .map_err(|_| RustyRayError::RuntimeNotInitialized)?;
+            runtime.object_store().clone()
+        };
+        
         // Poll the object store with exponential backoff
         let mut retries = 0;
         let max_retries = 100;
@@ -72,7 +91,7 @@ impl<T: DeserializeOwned + Send + 'static> ObjectRef<T> {
 
         loop {
             // Try to get raw bytes first
-            match self.store.get_raw(self.id).await? {
+            match store.get_raw(self.id).await? {
                 Some(bytes) => {
                     // Check if this is an error result
                     const ERROR_MARKER: &[u8] = b"__RUSTYRAY_ERROR__";
@@ -119,19 +138,14 @@ impl<T: DeserializeOwned + Send + 'static> Future for ObjectRef<T> {
     }
 }
 
-impl<T> Clone for ObjectRef<T> {
-    fn clone(&self) -> Self {
-        ObjectRef {
-            id: self.id,
-            store: self.store.clone(),
-            _phantom: PhantomData,
-        }
-    }
-}
+
 
 impl<T> fmt::Debug for ObjectRef<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ObjectRef").field("id", &self.id).finish()
+        f.debug_struct("ObjectRef")
+            .field("id", &self.id)
+            .field("has_store", &self.store.is_some())
+            .finish()
     }
 }
 
@@ -141,60 +155,52 @@ impl<T> fmt::Display for ObjectRef<T> {
     }
 }
 
-/// Serialization support for passing ObjectRefs between tasks
-impl<T> Serialize for ObjectRef<T> {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        // Serialize both the ID and store reference
-        #[derive(Serialize)]
-        struct ObjectRefData {
-            id: ObjectId,
-            // In a distributed system, this would include store location
-        }
-
-        ObjectRefData { id: self.id }.serialize(serializer)
-    }
-}
-
-impl<'de, T> Deserialize<'de> for ObjectRef<T> {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
+/// Implementation of ContextualDeserialize for ObjectRef.
+///
+/// This allows ObjectRef to be properly rehydrated with an object store
+/// reference when deserialized in a task context.
+impl<T: Send + Sync + 'static> ContextualDeserialize for ObjectRef<T> {
+    fn deserialize_with_context(
+        bytes: &[u8],
+        context: &DeserializationContext,
+    ) -> Result<Self> {
+        // First deserialize just the ID using a helper struct
         #[derive(Deserialize)]
         struct ObjectRefData {
-            #[allow(dead_code)]
             id: ObjectId,
         }
-
-        let _data = ObjectRefData::deserialize(deserializer)?;
-
-        // For now, we'll need to attach the store after deserialization
-        // In a real system, this would look up the store from runtime context
-        use serde::de::Error;
-        Err(D::Error::custom(
-            "ObjectRef deserialization requires runtime context - use TaskSystem methods",
-        ))
+        
+        let data: ObjectRefData = crate::task::serde_utils::deserialize(bytes)
+            .map_err(|e| RustyRayError::Internal(format!("Failed to deserialize ObjectRef: {}", e)))?;
+        
+        // Then create the ObjectRef with the store from context
+        Ok(ObjectRef {
+            id: data.id,
+            store: Some(context.object_store.clone()),
+            _phantom: PhantomData,
+        })
     }
 }
+
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::object_store::StoreConfig;
 
     #[tokio::test]
     async fn test_object_ref_store_backed() {
-        let store = Arc::new(InMemoryStore::new(StoreConfig::default()));
+        // Initialize runtime for test
+        let _ = crate::runtime::init(); // Ignore error if already initialized
+        
+        let runtime = crate::runtime::global().unwrap();
+        let store = runtime.object_store();
         let value = 42i32;
 
         // Put value in store
         let result = store.put(value).await.unwrap();
 
         // Create ObjectRef
-        let obj_ref = ObjectRef::<i32>::new(result.id, store.clone());
+        let obj_ref = ObjectRef::<i32>::with_store(result.id, store.clone());
 
         // Get value
         let result = obj_ref.get().await.unwrap();
@@ -203,14 +209,18 @@ mod tests {
 
     #[tokio::test]
     async fn test_object_ref_clone() {
-        let store = Arc::new(InMemoryStore::new(StoreConfig::default()));
+        // Initialize runtime for test (or reuse existing)
+        let _ = crate::runtime::init();
+        
+        let runtime = crate::runtime::global().unwrap();
+        let store = runtime.object_store();
         let value = "hello".to_string();
 
         // Put value in store
         let result = store.put(value.clone()).await.unwrap();
 
         // Create ObjectRef
-        let obj_ref = ObjectRef::<String>::new(result.id, store.clone());
+        let obj_ref = ObjectRef::<String>::with_store(result.id, store.clone());
         let obj_ref_clone = obj_ref.clone();
 
         // Both should get the same value
@@ -220,14 +230,18 @@ mod tests {
 
     #[tokio::test]
     async fn test_object_ref_future() {
-        let store = Arc::new(InMemoryStore::new(StoreConfig::default()));
+        // Initialize runtime for test (or reuse existing)
+        let _ = crate::runtime::init();
+        
+        let runtime = crate::runtime::global().unwrap();
+        let store = runtime.object_store();
         let value = vec![1, 2, 3];
 
         // Put value in store
         let result = store.put(value.clone()).await.unwrap();
 
         // Create ObjectRef
-        let obj_ref = ObjectRef::<Vec<i32>>::new(result.id, store.clone());
+        let obj_ref = ObjectRef::<Vec<i32>>::with_store(result.id, store.clone());
 
         // Await as future
         let result = obj_ref.await.unwrap();
@@ -236,15 +250,29 @@ mod tests {
 
     #[tokio::test]
     async fn test_object_ref_not_found() {
-        let store = Arc::new(InMemoryStore::new(StoreConfig::default()));
+        // Initialize runtime for test (or reuse existing)
+        let _ = crate::runtime::init();
+        
         let id = ObjectId::new();
 
         // Create ObjectRef for non-existent object
-        let obj_ref = ObjectRef::<i32>::new(id, store.clone());
+        let runtime = crate::runtime::global().unwrap();
+        let store = runtime.object_store();
+        let obj_ref = ObjectRef::<i32>::with_store(id, store.clone());
 
         // Should error after retries
         let result = obj_ref.get().await;
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("not found"));
+    }
+    
+    #[test]
+    fn test_object_ref_serialization() {
+        let obj_ref = ObjectRef::<i32>::new(ObjectId::new());
+        
+        // Test bincode serialization (what tasks actually use)
+        let encoded = crate::task::serde_utils::serialize(&obj_ref).unwrap();
+        let decoded: ObjectRef<i32> = crate::task::serde_utils::deserialize(&encoded).unwrap();
+        assert_eq!(obj_ref.id(), decoded.id());
     }
 }

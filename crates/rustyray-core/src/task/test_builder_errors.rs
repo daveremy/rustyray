@@ -2,11 +2,10 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::actor::ActorSystem;
-    use crate::task::{TaskBuilder, TaskSystem};
+    use crate::task::TaskBuilder;
     use crate::task_function;
+    use crate::test_utils::with_test_runtime;
     use serde::{Deserialize, Serialize};
-    use std::sync::Arc;
 
     // A type that implements Serialize but can fail during serialization
     #[derive(Serialize, Deserialize)]
@@ -16,58 +15,54 @@ mod tests {
 
     #[tokio::test]
     async fn test_task_builder_error_propagation() {
-        let actor_system = Arc::new(ActorSystem::new());
-        let task_system = Arc::new(TaskSystem::new(actor_system.clone()));
+        with_test_runtime(|| async {
+            let runtime = crate::runtime::global().unwrap();
+            let task_system = runtime.task_system();
 
-        // Register a function that takes multiple args
-        task_system
-            .register_function(
-                "multi_arg",
-                task_function!(|x: i32, y: String| async move {
-                    Ok::<String, crate::error::RustyRayError>(format!("{}: {}", x, y))
-                }),
-            )
-            .unwrap();
+            // Register a function that takes multiple args
+            task_system
+                .register_function(
+                    "test_builder_errors_multi_arg",
+                    task_function!(|x: i32, y: String| async move {
+                        Ok::<String, crate::error::RustyRayError>(format!("{}: {}", x, y))
+                    }),
+                )
+                .unwrap();
 
-        // Test with valid arguments
-        let result = TaskBuilder::new("multi_arg")
-            .arg(42)
-            .arg("test".to_string())
-            .submit::<String>(&task_system)
-            .await;
+            // Test with valid arguments
+            let result = TaskBuilder::new("test_builder_errors_multi_arg")
+                .arg(42)
+                .arg("test".to_string())
+                .submit::<String>(&task_system)
+                .await;
 
-        assert!(result.is_ok());
-        let value = result.unwrap().get().await.unwrap();
-        assert_eq!(value, "42: test");
-
-        // Shutdown
-        task_system.shutdown().await.unwrap();
-        actor_system.shutdown().await.unwrap();
+            assert!(result.is_ok());
+            let value = result.unwrap().get().await.unwrap();
+            assert_eq!(value, "42: test");
+        }).await;
     }
 
     #[tokio::test]
     async fn test_missing_function_error() {
-        let actor_system = Arc::new(ActorSystem::new());
-        let task_system = Arc::new(TaskSystem::new(actor_system.clone()));
+        with_test_runtime(|| async {
+            let runtime = crate::runtime::global().unwrap();
+            let task_system = runtime.task_system();
 
-        // Submit a task for a non-existent function
-        let result_ref = TaskBuilder::new("non_existent")
-            .arg(42)
-            .submit::<i32>(&task_system)
-            .await;
+            // Submit a task for a non-existent function
+            let result_ref = TaskBuilder::new("non_existent")
+                .arg(42)
+                .submit::<i32>(&task_system)
+                .await;
 
-        // Submission succeeds (returns ObjectRef)
-        assert!(result_ref.is_ok());
+            // Submission succeeds (returns ObjectRef)
+            assert!(result_ref.is_ok());
 
-        // But getting the result should fail
-        let get_result = result_ref.unwrap().get().await;
-        assert!(get_result.is_err());
-        let error_msg = get_result.unwrap_err().to_string();
-        assert!(error_msg.contains("not found"));
-
-        // Shutdown
-        task_system.shutdown().await.unwrap();
-        actor_system.shutdown().await.unwrap();
+            // But getting the result should fail
+            let get_result = result_ref.unwrap().get().await;
+            assert!(get_result.is_err());
+            let error_msg = get_result.unwrap_err().to_string();
+            assert!(error_msg.contains("not found"));
+        }).await;
     }
 
     #[tokio::test]

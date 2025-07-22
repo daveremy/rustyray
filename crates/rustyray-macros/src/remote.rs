@@ -1,6 +1,6 @@
 //! Implementation of the #[remote] macro
 
-use crate::utils::{extract_result_ok_type, is_object_ref_type, is_result_type};
+use crate::utils::{extract_result_ok_type, is_object_ref_type, is_potentially_serializable, is_result_type};
 use darling::FromMeta;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
@@ -201,6 +201,58 @@ fn generate_remote_module(func: &ItemFn, args: &RemoteArgs) -> proc_macro2::Toke
         quote! {}
     };
 
+    // Check if we should generate ObjectRef variant
+    let has_serializable_params = params.iter().any(|param| {
+        !is_object_ref_type(&param.ty) && is_potentially_serializable(&param.ty)
+    });
+
+    // Generate ObjectRef parameter types and arg calls
+    let ref_variant = if has_serializable_params {
+        // Create ObjectRef versions of parameters
+        let ref_params: Vec<_> = params.iter().zip(param_names.iter()).map(|(param, name)| {
+            let ty = &param.ty;
+            if is_object_ref_type(ty) {
+                // Already an ObjectRef, keep as is
+                quote! { #name: #ty }
+            } else if is_potentially_serializable(ty) {
+                // Convert to ObjectRef
+                quote! { #name: ObjectRef<#ty> }
+            } else {
+                // Keep as is (non-serializable)
+                quote! { #name: #ty }
+            }
+        }).collect();
+
+        // All parameters use arg_ref in the ref variant
+        let ref_arg_calls: Vec<_> = param_names.iter().map(|name| {
+            quote! { .arg_ref(&#name) }
+        }).collect();
+
+        quote! {
+            /// Execute this function remotely with ObjectRef parameters
+            pub fn remote_ref(#(#ref_params),*) -> impl std::future::Future<Output = Result<ObjectRef<#object_ref_type>>> {
+                async move {
+                    use rustyray_core::error::ResultExt;
+
+                    let runtime = runtime::global()
+                        .context(format!("Runtime not available for remote function '{}'", stringify!(#fn_name)))?;
+                    let task_system = runtime.task_system();
+
+                    TaskBuilder::new(stringify!(#fn_name))
+                        #(
+                            #ref_arg_calls
+                        )*
+                        #resource_config
+                        .submit::<#object_ref_type>(task_system)
+                        .await
+                        .context(format!("Failed to submit remote function '{}' for execution", stringify!(#fn_name)))
+                }
+            }
+        }
+    } else {
+        quote! {}
+    };
+
     // Generate the module
     quote! {
         // Original function remains accessible
@@ -217,20 +269,22 @@ fn generate_remote_module(func: &ItemFn, args: &RemoteArgs) -> proc_macro2::Toke
                 async move {
                     use rustyray_core::error::ResultExt;
 
-                    let task_system = runtime::global()
-                        .context(format!("Runtime not available for remote function '{}'", stringify!(#fn_name)))?
-                        .task_system();
+                    let runtime = runtime::global()
+                        .context(format!("Runtime not available for remote function '{}'", stringify!(#fn_name)))?;
+                    let task_system = runtime.task_system();
 
                     TaskBuilder::new(stringify!(#fn_name))
                         #(
                             #add_arg_calls
                         )*
                         #resource_config
-                        .submit::<#object_ref_type>(&task_system)
+                        .submit::<#object_ref_type>(task_system)
                         .await
                         .context(format!("Failed to submit remote function '{}' for execution", stringify!(#fn_name)))
                 }
             }
+
+            #ref_variant
 
             // Registration with linkme
             #[linkme::distributed_slice(rustyray_core::runtime::REMOTE_FUNCTIONS)]

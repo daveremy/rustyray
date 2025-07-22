@@ -15,6 +15,8 @@ use serde::{de::DeserializeOwned, Serialize};
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
 
 /// Represents the current state of the task system
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -56,6 +58,9 @@ pub struct TaskSystem {
 
     /// Shutdown state
     shutdown_state: Arc<AtomicU8>,
+    
+    /// Tracks spawned tasks for result storage
+    result_storage_tasks: Arc<Mutex<Vec<JoinHandle<()>>>>,
 }
 
 impl TaskSystem {
@@ -71,6 +76,7 @@ impl TaskSystem {
             actor_system,
             object_store,
             shutdown_state: Arc::new(AtomicU8::new(ShutdownState::Running as u8)),
+            result_storage_tasks: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -86,6 +92,7 @@ impl TaskSystem {
             actor_system,
             object_store,
             shutdown_state: Arc::new(AtomicU8::new(ShutdownState::Running as u8)),
+            result_storage_tasks: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -100,6 +107,7 @@ impl TaskSystem {
             actor_system,
             object_store,
             shutdown_state: Arc::new(AtomicU8::new(ShutdownState::Running as u8)),
+            result_storage_tasks: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -119,6 +127,7 @@ impl TaskSystem {
             actor_system,
             object_store,
             shutdown_state: Arc::new(AtomicU8::new(ShutdownState::Running as u8)),
+            result_storage_tasks: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -147,14 +156,15 @@ impl TaskSystem {
         spec.task_id = crate::types::TaskId::from(object_id);
 
         // Queue task for execution
-        self.task_manager.queue_task(spec, result_tx).await?;
+        self.task_manager.queue_task(spec, result_tx, self.object_store.clone()).await?;
 
         // Create ObjectRef backed by store
-        let object_ref = ObjectRef::new(object_id, self.object_store.clone());
+        let object_ref = ObjectRef::with_store(object_id, self.object_store.clone());
 
         // Spawn a task to store the result when it's ready
         let store = self.object_store.clone();
-        tokio::spawn(async move {
+        let task_tracker = self.result_storage_tasks.clone();
+        let handle = tokio::spawn(async move {
             if let Ok(result) = result_rx.await {
                 // Store both successful results and errors
                 // We wrap the Result<Vec<u8>> to preserve error information
@@ -180,6 +190,15 @@ impl TaskSystem {
                 let _ = store.put_with_id(object_id, wrapped_result).await;
             }
         });
+        
+        // Track the spawned task
+        {
+            let mut tasks = task_tracker.lock().await;
+            // Clean up completed tasks
+            tasks.retain(|handle| !handle.is_finished());
+            // Add the new task
+            tasks.push(handle);
+        }
 
         Ok(object_ref)
     }
@@ -215,7 +234,7 @@ impl TaskSystem {
         let result = self.object_store.put(value).await?;
 
         // Create ObjectRef with store reference
-        let object_ref = ObjectRef::new(result.id, self.object_store.clone());
+        let object_ref = ObjectRef::with_store(result.id, self.object_store.clone());
 
         // Also notify task manager for backward compatibility
         // The task manager needs the bytes for resolving dependencies
@@ -231,12 +250,37 @@ impl TaskSystem {
     /// Functions must be registered before they can be called as tasks.
     pub fn register_function<F>(&self, id: impl Into<FunctionId>, function: F) -> Result<()>
     where
-        F: Fn(Vec<Vec<u8>>) -> crate::task::BoxFuture<'static, Result<Vec<u8>>>
+        F: Fn(Vec<Vec<u8>>, crate::task::context::DeserializationContext) -> crate::task::BoxFuture<'static, Result<Vec<u8>>>
             + Send
             + Sync
             + 'static,
     {
         self.registry.register(id.into(), function)
+    }
+
+    /// Clear the function registry (for testing)
+    pub fn clear_registry(&self) {
+        self.registry.clear();
+    }
+
+    /// Check if the task system is shut down
+    pub fn is_shutdown(&self) -> bool {
+        ShutdownState::from(self.shutdown_state.load(Ordering::Acquire)) == ShutdownState::Shutdown
+    }
+    
+    /// Wait for all spawned result storage tasks to complete
+    pub async fn wait_for_tasks(&self) -> Result<()> {
+        let tasks = {
+            let mut tasks_guard = self.result_storage_tasks.lock().await;
+            std::mem::take(&mut *tasks_guard)
+        };
+        
+        for task in tasks {
+            // Ignore errors from individual tasks
+            let _ = task.await;
+        }
+        
+        Ok(())
     }
 
     /// Shutdown the task system gracefully.
@@ -261,6 +305,17 @@ impl TaskSystem {
                 // We successfully initiated shutdown
                 // Shutdown task manager
                 self.task_manager.shutdown().await?;
+                
+                // Wait for all result storage tasks to complete
+                let tasks = {
+                    let mut tasks_guard = self.result_storage_tasks.lock().await;
+                    std::mem::take(&mut *tasks_guard)
+                };
+                
+                for task in tasks {
+                    // Ignore errors from task completion
+                    let _ = task.await;
+                }
 
                 // Mark as fully shutdown
                 self.shutdown_state
@@ -362,118 +417,100 @@ impl TaskBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_utils::with_test_runtime;
 
     #[tokio::test]
     async fn test_task_system_basic() {
-        // Create systems
-        let actor_system = Arc::new(ActorSystem::new());
-        let task_system = TaskSystem::new(actor_system.clone());
+        with_test_runtime(|| async {
+            // Use runtime's task system
+            let runtime = crate::runtime::global().unwrap();
+            let task_system = runtime.task_system();
 
-        // Register a function
-        task_system
-            .register_function("double", |args| {
-                Box::pin(async move {
-                    if args.len() != 1 {
-                        return Err(RustyRayError::Internal("Expected 1 argument".to_string()));
-                    }
-                    let x: i32 = crate::task::serde_utils::deserialize(&args[0])?;
-                    let result = x * 2;
-                    Ok(crate::task::serde_utils::serialize(&result).unwrap())
-                })
-            })
-            .unwrap();
+            // Register a function with unique name for this test
+            task_system
+                .register_function(
+                    "test_basic_double",
+                    crate::task_function!(|x: i32| async move {
+                        Ok::<i32, RustyRayError>(x * 2)
+                    }),
+                )
+                .unwrap();
 
-        // Submit a task
-        let args = vec![TaskArg::from_value(&21).unwrap()];
-        let result_ref: ObjectRef<i32> = task_system
-            .submit_task("double".into(), args)
-            .await
-            .unwrap();
+            // Submit a task
+            let args = vec![TaskArg::from_value(&21).unwrap()];
+            let result_ref: ObjectRef<i32> = task_system
+                .submit_task("test_basic_double".into(), args)
+                .await
+                .expect("Failed to submit task");
 
-        // Get result
-        let result = result_ref.get().await.unwrap();
-        assert_eq!(result, 42);
-
-        // Shutdown
-        task_system.shutdown().await.unwrap();
-        actor_system.shutdown().await.unwrap();
+            // Get result
+            let result = result_ref.get().await.unwrap();
+            assert_eq!(result, 42);
+        }).await;
     }
 
     #[tokio::test]
     async fn test_task_builder() {
-        // Create systems
-        let actor_system = Arc::new(ActorSystem::new());
-        let task_system = TaskSystem::new(actor_system.clone());
+        with_test_runtime(|| async {
+            // Use runtime's task system
+            let runtime = crate::runtime::global().unwrap();
+            let task_system = runtime.task_system();
 
-        // Register a function
-        task_system
-            .register_function("add", |args| {
-                Box::pin(async move {
-                    if args.len() != 2 {
-                        return Err(RustyRayError::Internal("Expected 2 arguments".to_string()));
-                    }
-                    let x: i32 = crate::task::serde_utils::deserialize(&args[0])?;
-                    let y: i32 = crate::task::serde_utils::deserialize(&args[1])?;
-                    let result = x + y;
-                    Ok(crate::task::serde_utils::serialize(&result).unwrap())
-                })
-            })
-            .unwrap();
+            // Register a function with unique name for this test
+            task_system
+                .register_function(
+                    "test_builder_add",
+                    crate::task_function!(|x: i32, y: i32| async move {
+                        Ok::<i32, RustyRayError>(x + y)
+                    }),
+                )
+                .unwrap();
 
-        // Use builder pattern
-        let result_ref: ObjectRef<i32> = TaskBuilder::new("add")
-            .arg(10)
-            .arg(15)
-            .num_cpus(1.0)
-            .submit(&task_system)
-            .await
-            .unwrap();
+            // Use builder pattern
+            let result_ref: ObjectRef<i32> = TaskBuilder::new("test_builder_add")
+                .arg(10)
+                .arg(15)
+                .num_cpus(1.0)
+                .submit(&task_system)
+                .await
+                .unwrap();
 
-        // Get result
-        let result = result_ref.get().await.unwrap();
-        assert_eq!(result, 25);
-
-        // Shutdown
-        task_system.shutdown().await.unwrap();
-        actor_system.shutdown().await.unwrap();
+            // Get result
+            let result = result_ref.get().await.unwrap();
+            assert_eq!(result, 25);
+        }).await;
     }
 
     #[tokio::test]
     async fn test_object_put_and_dependency() {
-        // Create systems
-        let actor_system = Arc::new(ActorSystem::new());
-        let task_system = TaskSystem::new(actor_system.clone());
+        with_test_runtime(|| async {
+            // Use runtime's task system
+            let runtime = crate::runtime::global().unwrap();
+            let task_system = runtime.task_system();
 
-        // Register a function that takes an ObjectRef
-        task_system
-            .register_function("use_ref", |args| {
-                Box::pin(async move {
-                    if args.len() != 1 {
-                        return Err(RustyRayError::Internal("Expected 1 argument".to_string()));
-                    }
-                    let x: i32 = crate::task::serde_utils::deserialize(&args[0])?;
-                    let result = x + 100;
-                    Ok(crate::task::serde_utils::serialize(&result).unwrap())
-                })
-            })
-            .unwrap();
+            // Register a function with unique name for this test
+            task_system
+                .register_function(
+                    "test_dependency_use_ref",
+                    crate::task_function!(|x: i32| async move {
+                        Ok::<i32, RustyRayError>(x + 100)
+                    }),
+                )
+                .unwrap();
 
-        // Put an object
-        let obj_ref = task_system.put(42i32).await.unwrap();
+            // Put an object
+            let obj_ref = task_system.put(42i32).await.unwrap();
 
-        // Submit task that uses the object
-        let result_ref: ObjectRef<i32> = TaskBuilder::new("use_ref")
-            .arg_ref(&obj_ref)
-            .submit(&task_system)
-            .await
-            .unwrap();
+            // Submit task that uses the object
+            let result_ref: ObjectRef<i32> = TaskBuilder::new("test_dependency_use_ref")
+                .arg_ref(&obj_ref)
+                .submit(&task_system)
+                .await
+                .unwrap();
 
-        // Get result
-        let result = result_ref.get().await.unwrap();
-        assert_eq!(result, 142);
-
-        // Shutdown
-        task_system.shutdown().await.unwrap();
-        actor_system.shutdown().await.unwrap();
+            // Get result
+            let result = result_ref.get().await.unwrap();
+            assert_eq!(result, 142);
+        }).await;
     }
 }

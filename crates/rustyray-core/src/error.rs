@@ -28,6 +28,9 @@ pub enum RustyRayError {
 
     /// Message type not recognized by actor.
     InvalidMessage,
+    
+    /// Runtime not initialized.
+    RuntimeNotInitialized,
 
     /// Generic internal error.
     Internal(String),
@@ -51,6 +54,7 @@ impl fmt::Display for RustyRayError {
             Self::Timeout(msg) => write!(f, "Operation timed out: {}", msg),
             Self::TaskExecutionFailed(msg) => write!(f, "Task execution failed: {}", msg),
             Self::InvalidMessage => write!(f, "Invalid message type"),
+            Self::RuntimeNotInitialized => write!(f, "Runtime not initialized. Call runtime::init() or use #[rustyray::main]"),
             Self::Internal(msg) => write!(f, "Internal error: {}", msg),
             Self::WithContext { context, source } => write!(f, "{}: {}", context, source),
         }
