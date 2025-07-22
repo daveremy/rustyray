@@ -475,7 +475,7 @@ mod tests {
                 .arg(10)
                 .arg(15)
                 .num_cpus(1.0)
-                .submit(&task_system)
+                .submit(task_system)
                 .await
                 .unwrap();
 
@@ -509,7 +509,7 @@ mod tests {
             // Submit task that uses the object
             let result_ref: ObjectRef<i32> = TaskBuilder::new("test_dependency_use_ref")
                 .arg_ref(&obj_ref)
-                .submit(&task_system)
+                .submit(task_system)
                 .await
                 .unwrap();
 

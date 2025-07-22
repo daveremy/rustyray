@@ -1,4 +1,5 @@
 //! Test to demonstrate the race condition issue
+#![allow(dead_code, unused_variables)]
 use rustyray::prelude::*;
 
 #[rustyray::remote]
@@ -21,8 +22,8 @@ async fn main() -> Result<()> {
 
     // Try to get result immediately (might fail)
     match task_ref.get().await {
-        Ok(result) => println!("Got result: {}", result),
-        Err(e) => println!("Error (expected): {}", e),
+        Ok(result) => println!("Got result: {result}"),
+        Err(e) => println!("Error (expected): {e}"),
     }
 
     // Wait a bit and try again
@@ -30,8 +31,8 @@ async fn main() -> Result<()> {
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
     match task_ref.get().await {
-        Ok(result) => println!("Got result: {}", result),
-        Err(e) => println!("Error (unexpected): {}", e),
+        Ok(result) => println!("Got result: {result}"),
+        Err(e) => println!("Error (unexpected): {e}"),
     }
 
     Ok(())

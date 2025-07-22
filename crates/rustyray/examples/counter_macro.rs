@@ -79,13 +79,13 @@ async fn main() -> Result<()> {
     // Operate on counter1
     println!("Operating on Counter1:");
     let val1 = counter1.increment().await?.get().await?;
-    println!("  After increment: {}", val1);
+    println!("  After increment: {val1}");
 
     let val2 = counter1.add(5).await?.get().await?;
-    println!("  After adding 5: {}", val2);
+    println!("  After adding 5: {val2}");
 
     let current = counter1.get().await?.get().await?;
-    println!("  Current value: {}", current);
+    println!("  Current value: {current}");
 
     // Operate on counter2
     println!("\nOperating on Counter2:");
@@ -95,14 +95,14 @@ async fn main() -> Result<()> {
     }
 
     let val3 = counter2.decrement().await?.get().await?;
-    println!("  After decrement: {}", val3);
+    println!("  After decrement: {val3}");
 
     // Reset counter2
     let old = counter2.reset(100).await?.get().await?;
-    println!("  Reset from {} to 100", old);
+    println!("  Reset from {old} to 100");
 
     let final_val = counter2.get().await?.get().await?;
-    println!("  Final value: {}", final_val);
+    println!("  Final value: {final_val}");
 
     // Parallel operations
     println!("\nParallel operations on both counters:");
@@ -110,7 +110,7 @@ async fn main() -> Result<()> {
 
     let v1 = r1?.get().await?;
     let v2 = r2?.get().await?;
-    println!("  Counter1: {}, Counter2: {}", v1, v2);
+    println!("  Counter1: {v1}, Counter2: {v2}");
 
     println!("\n✓ Counter example completed!");
     Ok(())

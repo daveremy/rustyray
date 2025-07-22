@@ -3,6 +3,7 @@
 //! This example shows how RustyRay now adds helpful context to errors,
 //! making debugging distributed applications much easier.
 
+#![allow(dead_code, unused_variables)]
 use rustyray::prelude::*;
 
 // Remote function that might fail
@@ -44,10 +45,10 @@ async fn main() -> Result<()> {
     match risky_operation_remote::remote(5).await {
         Ok(result_ref) => {
             let value = result_ref.get().await?;
-            println!("   risky_operation(5) = {}", value);
+            println!("   risky_operation(5) = {value}");
         }
         Err(e) => {
-            println!("   Error with context: {}", e);
+            println!("   Error with context: {e}");
         }
     }
 
@@ -55,12 +56,12 @@ async fn main() -> Result<()> {
     println!("\n3. Remote function with error:");
     match risky_operation_remote::remote(-5).await {
         Ok(result_ref) => match result_ref.get().await {
-            Ok(value) => println!("   risky_operation(-5) = {}", value),
-            Err(e) => println!("   Task execution failed: {}", e),
+            Ok(value) => println!("   risky_operation(-5) = {value}"),
+            Err(e) => println!("   Task execution failed: {e}"),
         },
         Err(e) => {
             // The enhanced error will show context
-            println!("   Error with context: {}", e);
+            println!("   Error with context: {e}");
         }
     }
 
@@ -70,14 +71,14 @@ async fn main() -> Result<()> {
         Ok(actor) => match actor.try_operation(42).await {
             Ok(result_ref) => {
                 let msg = result_ref.get().await?;
-                println!("   {}", msg);
+                println!("   {msg}");
             }
             Err(e) => {
-                println!("   Actor error with context: {}", e);
+                println!("   Actor error with context: {e}");
             }
         },
         Err(e) => {
-            println!("   Failed to create actor with context: {}", e);
+            println!("   Failed to create actor with context: {e}");
         }
     }
 

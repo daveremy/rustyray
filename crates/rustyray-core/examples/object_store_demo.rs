@@ -9,7 +9,7 @@
 
 use rustyray_core::{
     object_store::{EvictionPolicy, InMemoryStore, ObjectStore, StoreConfig},
-    ray, runtime, ActorSystem, Result, TaskSystem,
+    ray, runtime, Result, TaskSystem,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -154,7 +154,7 @@ async fn demonstrate_ray_api() -> Result<()> {
         retrieved_batch.len()
     );
 
-    for (i, dataset) in retrieved_batch.iter().enumerate() {
+    for dataset in &retrieved_batch {
         println!("    - {}: {} items", dataset.name, dataset.values.len());
     }
 
@@ -185,7 +185,7 @@ async fn demonstrate_with_tasks(task_system: &TaskSystem) -> Result<()> {
 
             // Serialize the result using bincode
             bincode::serde::encode_to_vec(&result, bincode::config::standard()).map_err(|e| {
-                rustyray_core::RustyRayError::Internal(format!("Serialization failed: {:?}", e))
+                rustyray_core::RustyRayError::Internal(format!("Serialization failed: {e:?}"))
             })
         })
     })?;
@@ -204,13 +204,13 @@ async fn demonstrate_with_tasks(task_system: &TaskSystem) -> Result<()> {
     // deserialization in tasks is still being integrated
     let result_ref = TaskBuilder::new("process_dataset")
         .arg(DataSet::new("task_dataset", 100)) // Pass value for now
-        .submit::<String>(&task_system)
+        .submit::<String>(task_system)
         .await?;
 
     // The dataset can be used by multiple tasks without copying
     println!("  - Task submitted, waiting for result...");
     let result: String = result_ref.get().await?;
-    println!("  - {}", result);
+    println!("  - {result}");
 
     // Demonstrate that the original dataset is still available
     println!("\nOriginal dataset still available:");

@@ -31,7 +31,7 @@ mod tests {
             // Submit task that uses the ObjectRef
             let result_ref: ObjectRef<i32> = TaskBuilder::new("test_passing_double_from_ref")
                 .arg_ref(&input_ref)
-                .submit(&task_system)
+                .submit(task_system)
                 .await
                 .unwrap();
 
@@ -73,13 +73,13 @@ mod tests {
 
             let added = TaskBuilder::new("test_chained_add_ten")
                 .arg_ref(&initial)
-                .submit::<i32>(&task_system)
+                .submit::<i32>(task_system)
                 .await
                 .unwrap();
 
             let multiplied = TaskBuilder::new("test_chained_multiply_three")
                 .arg_ref(&added)
-                .submit::<i32>(&task_system)
+                .submit::<i32>(task_system)
                 .await
                 .unwrap();
 

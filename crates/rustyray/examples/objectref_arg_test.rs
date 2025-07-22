@@ -1,4 +1,5 @@
 //! Test ObjectRef as function argument
+#![allow(dead_code, unused_variables)]
 use rustyray::prelude::*;
 
 #[rustyray::remote]
@@ -10,7 +11,7 @@ async fn create_data() -> Vec<i32> {
 #[rustyray::remote]
 async fn process_data(data: Vec<i32>) -> Result<i32> {
     println!("Processing data...");
-    println!("Got data: {:?}", data);
+    println!("Got data: {data:?}");
     Ok(data.iter().sum::<i32>())
 }
 
@@ -32,7 +33,7 @@ async fn main() -> Result<()> {
     // Get final result
     println!("\nGetting final result...");
     let sum = sum_ref.get().await?;
-    println!("Sum: {}", sum);
+    println!("Sum: {sum}");
 
     Ok(())
 }

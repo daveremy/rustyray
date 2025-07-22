@@ -326,7 +326,7 @@ async fn test_concurrent_actors_and_tasks() {
         // Each actor with id i creates values [i, 2*i, 3*i, 4*i, 5*i]
         // So sum should be i * (1+2+3+4+5) = i * 15
         for (idx, sum) in results {
-            assert_eq!(sum, (idx as i32) * 15);
+            assert_eq!(sum, idx * 15);
         }
     })
     .await;

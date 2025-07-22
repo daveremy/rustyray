@@ -24,7 +24,7 @@ mod tests {
                 .register_function(
                     "test_builder_errors_multi_arg",
                     task_function!(|x: i32, y: String| async move {
-                        Ok::<String, crate::error::RustyRayError>(format!("{}: {}", x, y))
+                        Ok::<String, crate::error::RustyRayError>(format!("{x}: {y}"))
                     }),
                 )
                 .unwrap();
@@ -33,7 +33,7 @@ mod tests {
             let result = TaskBuilder::new("test_builder_errors_multi_arg")
                 .arg(42)
                 .arg("test".to_string())
-                .submit::<String>(&task_system)
+                .submit::<String>(task_system)
                 .await;
 
             assert!(result.is_ok());
@@ -52,7 +52,7 @@ mod tests {
             // Submit a task for a non-existent function
             let result_ref = TaskBuilder::new("non_existent")
                 .arg(42)
-                .submit::<i32>(&task_system)
+                .submit::<i32>(task_system)
                 .await;
 
             // Submission succeeds (returns ObjectRef)

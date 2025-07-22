@@ -114,7 +114,7 @@ async fn test_pinning() -> Result<()> {
     for i in 0..5 {
         let data = TestData {
             id: i,
-            name: format!("test_{}", i),
+            name: format!("test_{i}"),
             values: vec![i as i32; 100], // Larger data
         };
         let result = store.put(data).await?;
@@ -201,7 +201,7 @@ async fn test_clear() -> Result<()> {
     for i in 0..10 {
         let data = TestData {
             id: i,
-            name: format!("test_{}", i),
+            name: format!("test_{i}"),
             values: vec![i as i32; 10],
         };
         let result = store.put(data).await?;
@@ -277,7 +277,7 @@ async fn test_concurrent_access() -> Result<()> {
     for i in 0..10 {
         let data = TestData {
             id: i,
-            name: format!("concurrent_{}", i),
+            name: format!("concurrent_{i}"),
             values: vec![i as i32; 50],
         };
         let result = store.put(data).await?;
@@ -384,7 +384,7 @@ async fn test_eviction_at_capacity() -> Result<()> {
     for i in 0..10 {
         let data = TestData {
             id: i,
-            name: format!("eviction_test_{}", i),
+            name: format!("eviction_test_{i}"),
             values: vec![i as i32; 100], // ~400 bytes of i32s plus overhead
         };
         let result = store.put(data).await?;
@@ -393,7 +393,7 @@ async fn test_eviction_at_capacity() -> Result<()> {
 
     // Check stats and capacity tracking
     let stats = store.stats().await;
-    println!("After putting 10 objects: {:?}", stats);
+    println!("After putting 10 objects: {stats:?}");
     println!(
         "Total size: {} bytes, capacity: {} bytes",
         stats.total_size, 1000
@@ -415,8 +415,7 @@ async fn test_eviction_at_capacity() -> Result<()> {
 
     let stats_after = store.stats().await;
     println!(
-        "After putting 10 objects with strict enforcement: {:?}",
-        stats_after
+        "After putting 10 objects with strict enforcement: {stats_after:?}"
     );
     assert!(
         stats_after.total_size <= 1000,
@@ -447,8 +446,7 @@ async fn test_single_object_exceeds_capacity() -> Result<()> {
         .unwrap()
         .len();
     println!(
-        "Actual serialized size: {} bytes (limit: 1000 bytes)",
-        test_size
+        "Actual serialized size: {test_size} bytes (limit: 1000 bytes)"
     );
 
     // Now this should fail with our strict enforcement
@@ -528,7 +526,7 @@ async fn test_concurrent_pin_delete_race() -> Result<()> {
 
     // Verify store is in consistent state
     let stats = store.stats().await;
-    println!("Stats after race: {:?}", stats);
+    println!("Stats after race: {stats:?}");
 
     // The stats should be internally consistent
     assert!(stats.pinned_count <= stats.total_objects);
@@ -581,7 +579,7 @@ async fn test_delete_unpin_race() -> Result<()> {
     });
 
     // Wait for tasks
-    let _ = handle1.await.unwrap();
+    handle1.await.unwrap();
     let deleted = handle2.await.unwrap();
 
     // Verify the object was eventually deleted
@@ -661,7 +659,7 @@ async fn test_pinned_objects_blocking_capacity() -> Result<()> {
     for i in 0..5 {
         let data = TestData {
             id: i,
-            name: format!("pinned_{}", i),
+            name: format!("pinned_{i}"),
             values: vec![i as i32; 30], // Each ~150 bytes
         };
         let result = store.put(data).await?;
@@ -674,7 +672,7 @@ async fn test_pinned_objects_blocking_capacity() -> Result<()> {
     for i in 10..15 {
         let data = TestData {
             id: i,
-            name: format!("new_{}", i),
+            name: format!("new_{i}"),
             values: vec![i as i32; 30],
         };
         let result = store.put(data).await?;
@@ -699,7 +697,7 @@ async fn test_pinned_objects_blocking_capacity() -> Result<()> {
     // Debug: print actual status
     println!("Evicted count: {}/{}", evicted_count, new_ids.len());
     let stats = store.stats().await;
-    println!("Stats after adding new objects: {:?}", stats);
+    println!("Stats after adding new objects: {stats:?}");
 
     // With CLRU, the cache enforces strict limits
     // The key test is that the total size stays under capacity

@@ -69,7 +69,7 @@ mod tests {
                     // Simulate a long running task that periodically yields
                     for i in 0..10 {
                         time::sleep(Duration::from_millis(50)).await;
-                        println!("Long running task iteration {}", i);
+                        println!("Long running task iteration {i}");
                     }
                     Ok::<String, crate::error::RustyRayError>("Should not complete".to_string())
                 }),
@@ -103,7 +103,7 @@ mod tests {
 
         // Register many fast functions
         for i in 0..20 {
-            let name = format!("fast_{}", i);
+            let name = format!("fast_{i}");
             task_system
                 .register_function(
                     name,
@@ -118,7 +118,7 @@ mod tests {
         // Submit many fast tasks
         let mut refs = vec![];
         for i in 0..20 {
-            let name = format!("fast_{}", i);
+            let name = format!("fast_{i}");
             let ref_ = TaskBuilder::new(name)
                 .arg(i)
                 .submit::<i32>(&task_system)

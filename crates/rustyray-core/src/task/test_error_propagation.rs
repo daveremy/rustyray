@@ -9,6 +9,7 @@ mod tests {
     use crate::test_utils::with_test_runtime;
 
     #[tokio::test]
+    #[allow(dependency_on_unit_never_type_fallback)]
     async fn test_task_error_propagation() {
         with_test_runtime(|| async {
             let runtime = crate::runtime::global().unwrap();
@@ -38,7 +39,7 @@ mod tests {
                     "test_error_prop_maybe_fail",
                     task_function!(|x: i32| async move {
                         if x < 0 {
-                            Err(RustyRayError::Internal(format!("Invalid input: {}", x)))
+                            Err(RustyRayError::Internal(format!("Invalid input: {x}")))
                         } else {
                             Ok::<i32, RustyRayError>(x * 2)
                         }
@@ -57,7 +58,7 @@ mod tests {
             println!("Test 1: Direct task failure");
             let result_ref = TaskBuilder::new("test_error_prop_failing_task")
                 .arg(42)
-                .submit::<i32>(&task_system)
+                .submit::<i32>(task_system)
                 .await
                 .unwrap();
 
@@ -65,7 +66,7 @@ mod tests {
             match result_ref.get().await {
                 Ok(_) => panic!("Expected task to fail"),
                 Err(e) => {
-                    println!("   Got expected error: {:?}", e);
+                    println!("   Got expected error: {e:?}");
                     assert!(e.to_string().contains("This task always fails"));
                 }
             }
@@ -76,25 +77,25 @@ mod tests {
             // This should succeed
             let success_ref = TaskBuilder::new("test_error_prop_maybe_fail")
                 .arg(10)
-                .submit::<i32>(&task_system)
+                .submit::<i32>(task_system)
                 .await
                 .unwrap();
 
             let result = success_ref.get().await.unwrap();
             assert_eq!(result, 20);
-            println!("   Success case: 10 * 2 = {}", result);
+            println!("   Success case: 10 * 2 = {result}");
 
             // This should fail
             let fail_ref = TaskBuilder::new("test_error_prop_maybe_fail")
                 .arg(-5)
-                .submit::<i32>(&task_system)
+                .submit::<i32>(task_system)
                 .await
                 .unwrap();
 
             match fail_ref.get().await {
                 Ok(_) => panic!("Expected task to fail with negative input"),
                 Err(e) => {
-                    println!("   Failure case: {:?}", e);
+                    println!("   Failure case: {e:?}");
                     assert!(e.to_string().contains("Invalid input: -5"));
                 }
             }
@@ -108,19 +109,19 @@ mod tests {
             // First, let's test with a successful dependency chain
             let success_ref = TaskBuilder::new("test_error_prop_maybe_fail")
                 .arg(5)
-                .submit::<i32>(&task_system)
+                .submit::<i32>(task_system)
                 .await
                 .unwrap();
 
             let dependent_success = TaskBuilder::new("test_error_prop_add_ten")
                 .arg_ref(&success_ref)
-                .submit::<i32>(&task_system)
+                .submit::<i32>(task_system)
                 .await
                 .unwrap();
 
             let result = dependent_success.get().await.unwrap();
             assert_eq!(result, 20); // (5 * 2) + 10 = 20
-            println!("   Successful dependency chain: 5 * 2 + 10 = {}", result);
+            println!("   Successful dependency chain: 5 * 2 + 10 = {result}");
 
             // Note: Testing failed dependencies is complex because the current implementation
             // doesn't propagate failures through the object store. This is a known limitation
@@ -132,14 +133,14 @@ mod tests {
 
             let missing_ref = TaskBuilder::new("non_existent_function")
                 .arg(100)
-                .submit::<i32>(&task_system)
+                .submit::<i32>(task_system)
                 .await
                 .unwrap();
 
             match missing_ref.get().await {
                 Ok(_) => panic!("Expected task to fail with missing function"),
                 Err(e) => {
-                    println!("   Got expected error: {:?}", e);
+                    println!("   Got expected error: {e:?}");
                     assert!(e.to_string().contains("not found"));
                 }
             }
@@ -149,7 +150,7 @@ mod tests {
 
             let future_ref = TaskBuilder::new("test_error_prop_failing_task")
                 .arg(0)
-                .submit::<i32>(&task_system)
+                .submit::<i32>(task_system)
                 .await
                 .unwrap();
 
@@ -158,7 +159,7 @@ mod tests {
             match future_ref.get().await {
                 Ok(_) => panic!("Expected future to fail"),
                 Err(e) => {
-                    println!("   Future failed as expected: {:?}", e);
+                    println!("   Future failed as expected: {e:?}");
                 }
             }
 
@@ -180,13 +181,11 @@ mod tests {
                     task_function!(|min: i32, value: i32, max: i32| async move {
                         if value < min {
                             Err(RustyRayError::Internal(format!(
-                                "{} is less than minimum {}",
-                                value, min
+                                "{value} is less than minimum {min}"
                             )))
                         } else if value > max {
                             Err(RustyRayError::Internal(format!(
-                                "{} is greater than maximum {}",
-                                value, max
+                                "{value} is greater than maximum {max}"
                             )))
                         } else {
                             Ok::<i32, RustyRayError>(value)
@@ -200,7 +199,7 @@ mod tests {
                 .arg(0)
                 .arg(50)
                 .arg(100)
-                .submit::<i32>(&task_system)
+                .submit::<i32>(task_system)
                 .await
                 .unwrap();
 
@@ -211,7 +210,7 @@ mod tests {
                 .arg(10)
                 .arg(5)
                 .arg(20)
-                .submit::<i32>(&task_system)
+                .submit::<i32>(task_system)
                 .await
                 .unwrap();
 
@@ -225,7 +224,7 @@ mod tests {
                 .arg(0)
                 .arg(150)
                 .arg(100)
-                .submit::<i32>(&task_system)
+                .submit::<i32>(task_system)
                 .await
                 .unwrap();
 

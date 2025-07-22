@@ -42,7 +42,7 @@ async fn main() -> Result<()> {
             println!("   Slow task starting...");
             for i in 1..=10 {
                 time::sleep(Duration::from_millis(100)).await;
-                println!("   Slow task progress: {}/10", i);
+                println!("   Slow task progress: {i}/10");
             }
             println!("   Slow task completed!");
             Ok::<i32, rustyray_core::error::RustyRayError>(x * 3)
@@ -57,7 +57,7 @@ async fn main() -> Result<()> {
             loop {
                 time::sleep(Duration::from_millis(200)).await;
                 count += 1;
-                println!("   Infinite task iteration {}", count);
+                println!("   Infinite task iteration {count}");
             }
             #[allow(unreachable_code)]
             Ok::<(), rustyray_core::error::RustyRayError>(())
@@ -71,8 +71,8 @@ async fn main() -> Result<()> {
         .await?;
 
     match fast_ref.get().await {
-        Ok(result) => println!("   ✓ Fast task result: {}\n", result),
-        Err(e) => println!("   ✗ Fast task failed: {}\n", e),
+        Ok(result) => println!("   ✓ Fast task result: {result}\n"),
+        Err(e) => println!("   ✗ Fast task failed: {e}\n"),
     }
 
     println!("3. Running slow task (1000ms > 500ms timeout):");
@@ -85,8 +85,8 @@ async fn main() -> Result<()> {
     time::sleep(Duration::from_millis(600)).await;
 
     match slow_ref.get().await {
-        Ok(result) => println!("   ✓ Slow task result: {}\n", result),
-        Err(e) => println!("   ✗ Slow task cancelled: {}\n", e),
+        Ok(result) => println!("   ✓ Slow task result: {result}\n"),
+        Err(e) => println!("   ✗ Slow task cancelled: {e}\n"),
     }
 
     println!("4. Running infinite task:");
@@ -100,7 +100,7 @@ async fn main() -> Result<()> {
 
     match infinite_ref.get().await {
         Ok(_) => println!("   ✓ Infinite task completed (unexpected!)\n"),
-        Err(e) => println!("   ✗ Infinite task cancelled: {}\n", e),
+        Err(e) => println!("   ✗ Infinite task cancelled: {e}\n"),
     }
 
     println!("5. Demonstrating memory leak prevention:");
@@ -122,7 +122,7 @@ async fn main() -> Result<()> {
                 .await
                 .map(|r| {
                     // Convert to unit type for uniform storage
-                    let _ = r;
+                    drop(r);
                     TaskBuilder::new("infinite_task").submit::<()>(&task_system)
                 })?
                 .await?
@@ -136,7 +136,7 @@ async fn main() -> Result<()> {
     // Check a few to verify they were cancelled
     let mut cancelled_count = 0;
     for (i, ref_) in stuck_refs.iter().take(5).enumerate() {
-        if let Err(_) = ref_.get().await {
+        if ref_.get().await.is_err() {
             cancelled_count += 1;
         }
         print!(".");
@@ -145,7 +145,7 @@ async fn main() -> Result<()> {
         }
     }
 
-    println!("   ✓ Verified {}/5 tasks were cancelled\n", cancelled_count);
+    println!("   ✓ Verified {cancelled_count}/5 tasks were cancelled\n");
     println!("   Without cancellation, these tasks would leak memory forever!");
 
     // Shutdown

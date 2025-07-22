@@ -82,7 +82,7 @@ async fn test_actor_creates_task_consumes() {
         // Task processes the data
         let task_ref = rustyray_core::TaskBuilder::new("process_data")
             .arg_ref(&obj_ref)
-            .submit::<Vec<i32>>(&task_system)
+            .submit::<Vec<i32>>(task_system)
             .await
             .unwrap();
         let doubled_values = task_ref.get().await.unwrap();
@@ -114,7 +114,7 @@ async fn test_task_creates_actor_consumes() {
         // Task creates data
         let task_ref = rustyray_core::TaskBuilder::new("create_data")
             .arg(20u32)
-            .submit::<SharedData>(&task_system)
+            .submit::<SharedData>(task_system)
             .await
             .unwrap();
 

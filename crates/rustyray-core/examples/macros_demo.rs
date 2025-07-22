@@ -1,5 +1,7 @@
 //! Example demonstrating the new macro API
 
+#![allow(dead_code)]
+
 use rustyray_core::prelude::*;
 
 #[rustyray_macros::remote]

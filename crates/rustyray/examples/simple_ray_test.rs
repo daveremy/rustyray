@@ -1,10 +1,11 @@
 //! Simple test of ray API
+#![allow(dead_code, unused_variables)]
 use rustyray::prelude::*;
 use rustyray_core::ray;
 
 #[rustyray::remote]
 async fn double(x: i32) -> i32 {
-    println!("Doubling {}", x);
+    println!("Doubling {x}");
     x * 2
 }
 
@@ -19,7 +20,7 @@ async fn main() -> Result<()> {
     println!("Put value 42, got ref: {:?}", obj_ref.id());
 
     let retrieved = ray::get(&obj_ref).await?;
-    println!("Retrieved: {}", retrieved);
+    println!("Retrieved: {retrieved}");
 
     // Test with task
     println!("\nTesting with task...");
@@ -27,7 +28,7 @@ async fn main() -> Result<()> {
     println!("Task submitted, ref: {:?}", task_ref.id());
 
     let result = ray::get(&task_ref).await?;
-    println!("Task result: {}", result);
+    println!("Task result: {result}");
 
     Ok(())
 }

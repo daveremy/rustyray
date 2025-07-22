@@ -1,8 +1,8 @@
 //! Comprehensive tests for shutdown logic
 
-use crate::actor::{Actor, ActorSystem};
+use crate::actor::Actor;
 use crate::error::Result;
-use crate::task::{TaskBuilder, TaskSystem};
+use crate::task::TaskBuilder;
 use crate::task_function;
 use crate::test_utils::TestSync;
 use async_trait::async_trait;
@@ -63,7 +63,7 @@ async fn test_task_system_idempotent_shutdown() {
         // Submit a task
         let result_ref = TaskBuilder::new("test")
             .arg(21)
-            .submit::<i32>(&task_system)
+            .submit::<i32>(task_system)
             .await
             .unwrap();
 
@@ -107,11 +107,11 @@ async fn test_concurrent_shutdown() {
 
         // Submit some tasks
         for i in 0..5 {
-            let _ = TaskBuilder::new("sleep")
+            drop(TaskBuilder::new("sleep")
                 .arg(50u64 + i * 10)
-                .submit::<()>(&task_system)
+                .submit::<()>(task_system)
                 .await
-                .unwrap();
+                .unwrap());
         }
 
         // Spawn multiple concurrent shutdown tasks
@@ -153,7 +153,7 @@ async fn test_no_new_tasks_after_shutdown() {
         // Try to submit a task - should fail
         let result = TaskBuilder::new("test")
             .arg(42)
-            .submit::<i32>(&task_system)
+            .submit::<i32>(task_system)
             .await;
 
         assert!(result.is_err());
@@ -275,7 +275,7 @@ async fn test_task_completion_before_shutdown() {
         for i in 0..5 {
             let result_ref = TaskBuilder::new("slow")
                 .arg(i)
-                .submit::<i32>(&task_system)
+                .submit::<i32>(task_system)
                 .await
                 .unwrap();
             refs.push((i, result_ref));
@@ -359,8 +359,8 @@ async fn test_shared_system_references() {
         drop(ts_ref2);
         drop(as_ref1);
         drop(as_ref2);
-        drop(task_system);
-        drop(actor_system);
+        let _ = task_system;
+        let _ = actor_system;
     })
     .await;
 }

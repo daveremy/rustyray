@@ -3,6 +3,7 @@
 //! This example shows how to use the global ray::put() and ray::get()
 //! functions to share data between tasks and actors, similar to Python Ray.
 
+#![allow(dead_code, unused_variables)]
 use rustyray::prelude::*;
 use rustyray_core::ray;
 use std::collections::HashMap;
@@ -90,7 +91,7 @@ async fn combine_results(
     println!("Combining: Got both statistics...");
 
     // Combine the statistics
-    let all_stats = vec![stats1, stats2];
+    let all_stats = [stats1, stats2];
 
     println!("Combining: Got {} result sets", all_stats.len());
 
@@ -113,7 +114,7 @@ async fn combine_results(
         ));
         report.push_str(&format!("  Min: {:.2}\n", stats.get("min").unwrap_or(&0.0)));
         report.push_str(&format!("  Max: {:.2}\n", stats.get("max").unwrap_or(&0.0)));
-        report.push_str("\n");
+        report.push('\n');
     }
 
     Ok(report)
@@ -163,7 +164,7 @@ async fn main() -> Result<()> {
 
     // Get final report
     let report = ray::get(&report_ref).await?;
-    println!("\n{}", report);
+    println!("\n{report}");
 
     // Demonstrate batch operations
     println!("=== Batch Operations Demo ===\n");
@@ -175,7 +176,7 @@ async fn main() -> Result<()> {
 
     // Retrieve them all at once
     let retrieved_values = ray::get_batch(&batch_refs).await?;
-    println!("Retrieved values: {:?}", retrieved_values);
+    println!("Retrieved values: {retrieved_values:?}");
     assert_eq!(values, retrieved_values);
 
     // Wait for objects to be ready (useful for synchronization)

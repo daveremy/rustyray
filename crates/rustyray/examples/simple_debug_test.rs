@@ -1,4 +1,5 @@
 //! Debug test to see task execution
+#![allow(dead_code, unused_variables)]
 use rustyray::prelude::*;
 
 #[rustyray::remote]
@@ -25,7 +26,7 @@ async fn main() -> Result<()> {
 
     println!("Getting result...");
     let result = task_ref.get().await?;
-    println!("Got result: {}", result);
+    println!("Got result: {result}");
 
     Ok(())
 }
