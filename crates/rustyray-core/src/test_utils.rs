@@ -190,7 +190,7 @@ where
 ///
 /// # Example
 ///
-/// ```rust
+/// ```rust,no_run
 /// #[test]
 /// fn test_something_sync() {
 ///     with_test_runtime_blocking(|| {
