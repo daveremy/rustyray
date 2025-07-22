@@ -118,20 +118,22 @@ impl Runtime {
 
     /// Shutdown the global runtime with explicit async subsystem shutdown
     async fn shutdown_async_internal() -> Result<()> {
-        // Use unwrap_or_else to handle poisoned locks gracefully
-        let mut runtime_guard = RUNTIME
-            .write()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        // Extract runtime from the global state without holding lock across await
+        let runtime = {
+            // Use unwrap_or_else to handle poisoned locks gracefully
+            let mut runtime_guard = RUNTIME
+                .write()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
 
-        if runtime_guard.is_none() {
-            return Err(RustyRayError::Internal(
-                "Runtime not initialized. Nothing to shutdown".to_string(),
-            ));
-        }
+            if runtime_guard.is_none() {
+                return Err(RustyRayError::Internal(
+                    "Runtime not initialized. Nothing to shutdown".to_string(),
+                ));
+            }
 
-        // Get the runtime before clearing the guard
-        let runtime = runtime_guard.take().unwrap();
-        drop(runtime_guard); // Release the lock
+            // Get the runtime before clearing the guard
+            runtime_guard.take().unwrap()
+        }; // Lock is dropped here
 
         // Perform explicit shutdown of subsystems in the correct order
         // First shutdown the task system (which depends on actor system)
