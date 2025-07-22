@@ -1,0 +1,122 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Extract version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      
+      - name: Extract changelog
+        id: changelog
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          CHANGELOG=$(awk -v ver="$VERSION" '
+            /^## \[/ { if (p) exit; if (index($0, ver)) p=1; next }
+            p && /^## \[/ { exit }
+            p { print }
+          ' CHANGELOG.md)
+          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: RustyRay ${{ steps.get_version.outputs.VERSION }}
+          body: |
+            # RustyRay ${{ steps.get_version.outputs.VERSION }}
+            
+            ${{ steps.changelog.outputs.CHANGELOG }}
+            
+            ## Installation
+            
+            Add to your `Cargo.toml`:
+            ```toml
+            [dependencies]
+            rustyray = { git = "https://github.com/daveremy/rustyray", tag = "${{ steps.get_version.outputs.VERSION }}" }
+            ```
+          draft: false
+          prerelease: false
+
+  build-release:
+    name: Build Release Binaries
+    needs: create-release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact_name: rustyray-linux-amd64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact_name: rustyray-macos-amd64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact_name: rustyray-macos-arm64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact_name: rustyray-windows-amd64.exe
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }}
+      
+      # Note: Adjust this if you have actual binaries to release
+      # Currently RustyRay is a library, so we might skip binary uploads
+      
+  publish-crates:
+    name: Publish to crates.io
+    needs: create-release
+    runs-on: ubuntu-latest
+    # Only run this when we're ready to publish to crates.io
+    if: false
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Publish rustyray-macros
+        run: cargo publish --token ${{ secrets.CRATES_TOKEN }} -p rustyray-macros
+        continue-on-error: true
+        
+      - name: Wait for crates.io
+        run: sleep 30
+        
+      - name: Publish rustyray-core
+        run: cargo publish --token ${{ secrets.CRATES_TOKEN }} -p rustyray-core
+        continue-on-error: true
+        
+      - name: Wait for crates.io
+        run: sleep 30
+        
+      - name: Publish rustyray
+        run: cargo publish --token ${{ secrets.CRATES_TOKEN }} -p rustyray
+        continue-on-error: true

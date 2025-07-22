@@ -6,8 +6,8 @@ This document outlines the development plan for RustyRay, a Rust implementation 
 
 - **GitHub Repository**: https://github.com/daveremy/rustyray
 - **Latest Version**: 0.5.0 (Phase 5 Complete)
-- **Current Focus**: Phase 6 - Garbage Collection & Production Features
-- **Next Release**: 0.6.0 (Production Features)
+- **Current Focus**: Phase 5.5 - Development Infrastructure & CI/CD
+- **Next Release**: 0.5.5 (Development Infrastructure)
 
 ## Progress Summary
 
@@ -66,6 +66,13 @@ This document outlines the development plan for RustyRay, a Rust implementation 
   - Implemented poisoned lock recovery for resilience
   - All 84 tests passing (up from 78)
 
+- **Phase 5.5: Development Infrastructure & CI/CD** 🚀 In Progress
+  - GitHub Actions CI/CD pipeline
+  - Feature branch workflow with PR requirements
+  - Issue templates and project management
+  - Code quality gates (fmt, clippy, tests, coverage)
+  - Release automation
+
 ## Overview
 
 Based on our analysis of Ray's C++ implementation and comprehensive code review, we'll build RustyRay in phases:
@@ -76,7 +83,8 @@ Based on our analysis of Ray's C++ implementation and comprehensive code review,
 4. **Local Shared Memory Object Store** ✅ (Completed)
 4.5. **Actor-Object Store Integration** ✅ (Completed)
 5. **Runtime Architecture & Test Infrastructure** ✅ (Completed)
-6. **Garbage Collection & Production Features** 🚀 (Current Focus)
+5.5. **Development Infrastructure & CI/CD** 🚀 (Current Focus)
+6. **Garbage Collection & Production Features**
 7. **Performance Optimizations**
 8. **Distributed Foundation**
 9. **Production Features**
@@ -314,7 +322,43 @@ Major refactoring of the runtime architecture to fix concurrent test execution i
 
 ---
 
-## Phase 6: Garbage Collection & Production Features 🏭 (Current Focus)
+## Phase 5.5: Development Infrastructure & CI/CD 🔧 (In Progress)
+
+Establish professional development practices before implementing production features.
+
+### 5.5.1 GitHub Actions CI/CD ✅
+- [x] Multi-platform test matrix (Linux, macOS, Windows)
+- [x] Automated formatting and linting checks
+- [x] Code coverage reporting
+- [x] Security audit integration
+- [x] Release automation workflow
+
+### 5.5.2 Development Workflow
+- [ ] Feature branch protection rules
+- [ ] PR required for all changes
+- [ ] Required status checks
+- [x] Issue templates (bug, feature, task)
+- [x] PR template with checklist
+
+### 5.5.3 Project Management
+- [ ] Convert roadmap items to GitHub issues
+- [ ] Create project board for tracking
+- [ ] Establish labels and milestones
+- [ ] Link PRs to issues
+- [ ] Set up automation (auto-assign, auto-label)
+
+### 5.5.4 Developer Experience
+- [ ] Pre-commit hooks for local checks
+- [ ] Development setup scripts
+- [ ] Benchmark baseline and tracking
+- [ ] Documentation for new workflow
+- [ ] Update CONTRIBUTING.md
+
+**Deliverable**: Professional CI/CD pipeline with issue-driven development
+
+---
+
+## Phase 6: Garbage Collection & Production Features 🏭
 
 Based on Phase 5 code review feedback, implement critical production features starting with garbage collection.
 
@@ -488,6 +532,7 @@ Complete RustyRay with production-ready features and polish.
 - **Phase 4**: Can share large objects efficiently (<10ms latency) ✅
 - **Phase 4.5**: Unified object store with actor-task sharing ✅
 - **Phase 5**: Robust runtime with proper test isolation ✅
+- **Phase 5.5**: CI/CD pipeline active, PR-based workflow established
 - **Phase 6**: No memory leaks, production monitoring, resource limits
 - **Phase 7**: 10x performance improvement on benchmarks
 - **Phase 8**: Can transfer objects between nodes
@@ -499,9 +544,10 @@ Complete RustyRay with production-ready features and polish.
 - **Phase 4**: 2 weeks (January 2025) ✅ Completed  
 - **Phase 4.5**: 1 week (February 2025) ✅ Completed
 - **Phase 5**: 1 week (February 2025) ✅ Completed - Runtime Architecture
-- **Phase 6**: 2 weeks (February 2025) 🚀 Current - GC & Production Features
+- **Phase 5.5**: 1 week (February 2025) 🚀 Current - Development Infrastructure
+- **Phase 6**: 2 weeks (February-March 2025) - GC & Production Features
 - **Phase 7**: 2 weeks (March 2025) - Performance
-- **Phase 8**: 3 weeks (March 2025) - Distributed Foundation
+- **Phase 8**: 3 weeks (March-April 2025) - Distributed Foundation
 - **Phase 9**: 4 weeks (April 2025) - Production Features
 - **Version 1.0**: Q2 2025
 

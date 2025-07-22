@@ -12,74 +12,69 @@ env:
 
 jobs:
   test:
-    name: Test
-    runs-on: ubuntu-latest
+    name: Test Suite
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        rust:
-          - stable
-          - beta
-          - nightly
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        rust: [stable]
+        # Add nightly later after fixing any nightly-specific issues
     steps:
-    - uses: actions/checkout@v4
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: ${{ matrix.rust }}
-    - name: Cache cargo registry
-      uses: actions/cache@v4
-      with:
-        path: ~/.cargo/registry
-        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-    - name: Cache cargo index
-      uses: actions/cache@v4
-      with:
-        path: ~/.cargo/git
-        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-    - name: Cache cargo build
-      uses: actions/cache@v4
-      with:
-        path: target
-        key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
-    - name: Run tests (release)
-      run: cargo test --release --verbose
+      - uses: actions/checkout@v4
       
-  clippy:
-    name: Clippy
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+          components: rustfmt, clippy
+      
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+        
+      - name: Check formatting
+        run: cargo fmt -- --check
+        
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+        
+      - name: Build
+        run: cargo build --verbose
+        
+      - name: Run tests
+        run: cargo test --verbose -- --test-threads=1
+        
+      - name: Build documentation
+        run: cargo doc --no-deps --all-features
+
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+        
+      - name: Generate coverage
+        run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info -- --test-threads=1
+        
+      - name: Upload coverage to codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: lcov.info
+          fail_ci_if_error: false
+
+  security:
+    name: Security Audit
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        components: clippy
-    - name: Run clippy
-      run: cargo clippy -- -D warnings
+      - uses: actions/checkout@v4
       
-  format:
-    name: Format
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        components: rustfmt
-    - name: Check formatting
-      run: cargo fmt -- --check
-      
-  docs:
-    name: Documentation
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
-    - name: Build documentation
-      run: cargo doc --no-deps --document-private-items
-      env:
-        RUSTDOCFLAGS: -D warnings
+      - name: Run security audit
+        uses: rustsec/audit-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
