@@ -25,7 +25,7 @@ struct Coordinator {
 impl Actor for Coordinator {
     async fn handle(&mut self, msg: Box<dyn Any + Send>) -> Result<Box<dyn Any + Send>> {
         if let Some(count) = msg.downcast_ref::<usize>() {
-            println!("Coordinator: Processing {} items", count);
+            println!("Coordinator: Processing {count} items");
 
             // Submit parallel tasks
             let mut futures = Vec::new();
@@ -44,7 +44,7 @@ impl Actor for Coordinator {
                 sum += result;
             }
 
-            println!("Coordinator: Sum of squares = {}", sum);
+            println!("Coordinator: Sum of squares = {sum}");
             Ok(Box::new(sum))
         } else {
             Err(rustyray_core::error::RustyRayError::InvalidMessage)
@@ -69,7 +69,7 @@ async fn main() -> Result<()> {
     task_system.register_function(
         "square",
         task_function!(|x: i32| async move {
-            println!("   Task: Computing square of {}", x);
+            println!("   Task: Computing square of {x}");
             tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
             Ok::<i32, rustyray_core::error::RustyRayError>(x * x)
         }),
@@ -79,7 +79,7 @@ async fn main() -> Result<()> {
     task_system.register_function(
         "add",
         task_function!(|x: i32, y: i32| async move {
-            println!("   Task: Adding {} + {}", x, y);
+            println!("   Task: Adding {x} + {y}");
             Ok::<i32, rustyray_core::error::RustyRayError>(x + y)
         }),
     )?;
@@ -88,7 +88,7 @@ async fn main() -> Result<()> {
     task_system.register_function(
         "multiply",
         task_function!(|x: i32, y: i32| async move {
-            println!("   Task: Multiplying {} * {}", x, y);
+            println!("   Task: Multiplying {x} * {y}");
             Ok::<i32, rustyray_core::error::RustyRayError>(x * y)
         }),
     )?;
@@ -99,10 +99,10 @@ async fn main() -> Result<()> {
     println!("2. Simple task execution:");
     let result_ref: ObjectRef<i32> = TaskBuilder::new("square")
         .arg(5)
-        .submit(&task_system)
+        .submit(task_system)
         .await?;
     let result = result_ref.get().await?;
-    println!("   Square of 5 = {}\n", result);
+    println!("   Square of 5 = {result}\n");
 
     // Example 2: Parallel tasks
     println!("3. Parallel task execution:");
@@ -112,7 +112,7 @@ async fn main() -> Result<()> {
     for &num in &nums {
         let future = TaskBuilder::new("square")
             .arg(num)
-            .submit::<i32>(&task_system)
+            .submit::<i32>(task_system)
             .await?;
         futures.push(future);
     }
@@ -120,7 +120,7 @@ async fn main() -> Result<()> {
     print!("   Squares: ");
     for (i, future) in futures.into_iter().enumerate() {
         let result = future.get().await?;
-        print!("{}", result);
+        print!("{result}");
         if i < nums.len() - 1 {
             print!(", ");
         }
@@ -134,7 +134,7 @@ async fn main() -> Result<()> {
     let multiply_ref = TaskBuilder::new("multiply")
         .arg(3)
         .arg(4)
-        .submit::<i32>(&task_system)
+        .submit::<i32>(task_system)
         .await?;
     println!("   Submitted multiply(3, 4)");
 
@@ -144,13 +144,13 @@ async fn main() -> Result<()> {
     let add_ref = TaskBuilder::new("add")
         .arg_ref(&multiply_ref) // Pass the ObjectRef directly!
         .arg(5)
-        .submit::<i32>(&task_system)
+        .submit::<i32>(task_system)
         .await?;
     println!("   Submitted add(multiply_ref, 5) - chained without waiting!");
 
     // Get final result (this waits for both tasks to complete)
     let final_result = add_ref.get().await?;
-    println!("   Final result: {} (both tasks completed)\n", final_result);
+    println!("   Final result: {final_result} (both tasks completed)\n");
 
     // Example 4: Actor submitting tasks
     println!("5. Actor submitting tasks:");
@@ -171,17 +171,17 @@ async fn main() -> Result<()> {
 
     // Get the stored value
     let value = stored_value.get().await?;
-    println!("   Retrieved stored value: {}", value);
+    println!("   Retrieved stored value: {value}");
 
     // Use it in a task
     let result_ref = TaskBuilder::new("add")
         .arg(value)
         .arg(50)
-        .submit::<i32>(&task_system)
+        .submit::<i32>(task_system)
         .await?;
 
     let final_result = result_ref.get().await?;
-    println!("   {} + 50 = {}\n", value, final_result);
+    println!("   {value} + 50 = {final_result}\n");
 
     // Shutdown
     println!("7. Shutting down...");

@@ -40,7 +40,7 @@ async fn main() -> Result<()> {
     // Create a large object
     let data_ref = TaskBuilder::new("create_data")
         .arg(10_000_000usize) // 10MB
-        .submit::<Vec<u8>>(&task_system)
+        .submit::<Vec<u8>>(task_system)
         .await?;
 
     let data = data_ref.get().await?;
@@ -57,7 +57,7 @@ async fn main() -> Result<()> {
     for i in 0..5 {
         let result_ref = TaskBuilder::new("process_data")
             .arg_ref(&shared_ref)
-            .submit::<u64>(&task_system)
+            .submit::<u64>(task_system)
             .await?;
         result_refs.push((i, result_ref));
     }
@@ -67,7 +67,7 @@ async fn main() -> Result<()> {
     for (i, ref_) in result_refs {
         let result = ref_.get().await?;
         results.push((i, result));
-        println!("   Task {} result: {}", i, result);
+        println!("   Task {i} result: {result}");
     }
 
     println!("   Processed 5 tasks in {:?}", start.elapsed());
@@ -84,7 +84,7 @@ async fn main() -> Result<()> {
     // Create a chain of dependent tasks
     let step1 = TaskBuilder::new("create_data")
         .arg(1_000_000usize) // 1MB
-        .submit::<Vec<u8>>(&task_system)
+        .submit::<Vec<u8>>(task_system)
         .await?;
 
     // Each task depends on the previous one
@@ -92,7 +92,7 @@ async fn main() -> Result<()> {
 
     let step2 = TaskBuilder::new("process_data")
         .arg_ref(&step1_ref)
-        .submit::<u64>(&task_system)
+        .submit::<u64>(task_system)
         .await?;
 
     let final_result = step2.get().await?;

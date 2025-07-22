@@ -63,6 +63,12 @@ pub struct FunctionRegistry {
     functions: DashMap<FunctionId, TaskFunction>,
 }
 
+impl Default for FunctionRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FunctionRegistry {
     /// Create a new function registry
     pub fn new() -> Self {
@@ -74,12 +80,14 @@ impl FunctionRegistry {
     /// Register a function with the given ID
     pub fn register<F>(&self, id: FunctionId, function: F) -> Result<()>
     where
-        F: Fn(Vec<Vec<u8>>, DeserializationContext) -> BoxFuture<'static, Result<Vec<u8>>> + Send + Sync + 'static,
+        F: Fn(Vec<Vec<u8>>, DeserializationContext) -> BoxFuture<'static, Result<Vec<u8>>>
+            + Send
+            + Sync
+            + 'static,
     {
         if self.functions.contains_key(&id) {
             return Err(RustyRayError::Internal(format!(
-                "Function {} already registered",
-                id
+                "Function {id} already registered"
             )));
         }
 
@@ -165,7 +173,7 @@ macro_rules! task_function {
                             .ok_or_else(|| $crate::error::RustyRayError::Internal(
                                 "Missing argument".to_string()
                             ))?;
-                        
+
                         // For now, just use standard deserialization
                         // ObjectRef should be passed as TaskArg::ObjectRef, not serialized directly
                         $crate::task::serde_utils::deserialize(&arg_bytes)?
@@ -196,7 +204,9 @@ mod tests {
         let id = FunctionId::from("test_func");
 
         // Register a simple function
-        let func = |_args: Vec<Vec<u8>>, _context: DeserializationContext| -> BoxFuture<'static, Result<Vec<u8>>> {
+        let func = |_args: Vec<Vec<u8>>,
+                    _context: DeserializationContext|
+         -> BoxFuture<'static, Result<Vec<u8>>> {
             Box::pin(async move { Ok(vec![]) })
         };
 
@@ -217,7 +227,9 @@ mod tests {
         let id = FunctionId::from("add");
 
         // Register an add function
-        let func = |args: Vec<Vec<u8>>, _context: DeserializationContext| -> BoxFuture<'static, Result<Vec<u8>>> {
+        let func = |args: Vec<Vec<u8>>,
+                    _context: DeserializationContext|
+         -> BoxFuture<'static, Result<Vec<u8>>> {
             Box::pin(async move {
                 if args.len() != 2 {
                     return Err(RustyRayError::Internal("Expected 2 arguments".to_string()));
@@ -237,7 +249,9 @@ mod tests {
             crate::task::serde_utils::serialize(&10).unwrap(),
             crate::task::serde_utils::serialize(&20).unwrap(),
         ];
-        let object_store = Arc::new(crate::object_store::InMemoryStore::new(crate::object_store::StoreConfig::default()));
+        let object_store = Arc::new(crate::object_store::InMemoryStore::new(
+            crate::object_store::StoreConfig::default(),
+        ));
         let context = DeserializationContext::new(object_store);
         let result_bytes = task_func(args, context).await.unwrap();
         let result: i32 = crate::task::serde_utils::deserialize(&result_bytes).unwrap();
@@ -265,7 +279,9 @@ mod tests {
             crate::task::serde_utils::serialize(&3).unwrap(),
             crate::task::serde_utils::serialize(&4).unwrap(),
         ];
-        let object_store = Arc::new(crate::object_store::InMemoryStore::new(crate::object_store::StoreConfig::default()));
+        let object_store = Arc::new(crate::object_store::InMemoryStore::new(
+            crate::object_store::StoreConfig::default(),
+        ));
         let context = DeserializationContext::new(object_store);
         let result_bytes = func(args, context).await.unwrap();
         let result: i32 = crate::task::serde_utils::deserialize(&result_bytes).unwrap();

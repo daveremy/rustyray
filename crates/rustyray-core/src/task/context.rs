@@ -33,10 +33,7 @@ impl DeserializationContext {
 /// to properly initialize themselves after being deserialized from bytes.
 pub trait ContextualDeserialize: Sized {
     /// Deserialize from bytes with access to runtime context.
-    fn deserialize_with_context(
-        bytes: &[u8],
-        context: &DeserializationContext,
-    ) -> Result<Self>;
+    fn deserialize_with_context(bytes: &[u8], context: &DeserializationContext) -> Result<Self>;
 }
 
 /// Helper to provide contextual deserialization for standard types.
@@ -48,10 +45,9 @@ pub fn deserialize_standard<T: DeserializeOwned>(
     _context: &DeserializationContext,
 ) -> Result<T> {
     crate::task::serde_utils::deserialize(bytes)
-        .map_err(|e| RustyRayError::Internal(format!("Deserialization failed: {}", e)))
+        .map_err(|e| RustyRayError::Internal(format!("Deserialization failed: {e}")))
 }
 
 // We'll handle ObjectRef deserialization specially in the macro
 // For now, just export the standard deserialization function
 pub use deserialize_standard as deserialize_arg;
-

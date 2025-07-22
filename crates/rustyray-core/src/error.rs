@@ -28,7 +28,7 @@ pub enum RustyRayError {
 
     /// Message type not recognized by actor.
     InvalidMessage,
-    
+
     /// Runtime not initialized.
     RuntimeNotInitialized,
 
@@ -47,16 +47,19 @@ pub enum RustyRayError {
 impl fmt::Display for RustyRayError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::ActorNotFound(id) => write!(f, "Actor {} not found", id),
-            Self::ActorDead(id) => write!(f, "Actor {} is dead", id),
-            Self::MessageSendFailed(msg) => write!(f, "Failed to send message: {}", msg),
-            Self::MailboxFull(id) => write!(f, "Actor {} mailbox is full", id),
-            Self::Timeout(msg) => write!(f, "Operation timed out: {}", msg),
-            Self::TaskExecutionFailed(msg) => write!(f, "Task execution failed: {}", msg),
+            Self::ActorNotFound(id) => write!(f, "Actor {id} not found"),
+            Self::ActorDead(id) => write!(f, "Actor {id} is dead"),
+            Self::MessageSendFailed(msg) => write!(f, "Failed to send message: {msg}"),
+            Self::MailboxFull(id) => write!(f, "Actor {id} mailbox is full"),
+            Self::Timeout(msg) => write!(f, "Operation timed out: {msg}"),
+            Self::TaskExecutionFailed(msg) => write!(f, "Task execution failed: {msg}"),
             Self::InvalidMessage => write!(f, "Invalid message type"),
-            Self::RuntimeNotInitialized => write!(f, "Runtime not initialized. Call runtime::init() or use #[rustyray::main]"),
-            Self::Internal(msg) => write!(f, "Internal error: {}", msg),
-            Self::WithContext { context, source } => write!(f, "{}: {}", context, source),
+            Self::RuntimeNotInitialized => write!(
+                f,
+                "Runtime not initialized. Call runtime::init() or use #[rustyray::main]"
+            ),
+            Self::Internal(msg) => write!(f, "Internal error: {msg}"),
+            Self::WithContext { context, source } => write!(f, "{context}: {source}"),
         }
     }
 }

@@ -14,13 +14,13 @@ fn config() -> bincode::config::Configuration {
 /// Serialize a value to bytes
 pub fn serialize<T: Serialize>(value: &T) -> Result<Vec<u8>> {
     bincode::serde::encode_to_vec(value, config())
-        .map_err(|e| RustyRayError::Internal(format!("Failed to serialize: {:?}", e)))
+        .map_err(|e| RustyRayError::Internal(format!("Failed to serialize: {e:?}")))
 }
 
 /// Deserialize bytes to a value
 pub fn deserialize<T: DeserializeOwned>(bytes: &[u8]) -> Result<T> {
     let (value, _) = bincode::serde::decode_from_slice(bytes, config())
-        .map_err(|e| RustyRayError::Internal(format!("Failed to deserialize: {:?}", e)))?;
+        .map_err(|e| RustyRayError::Internal(format!("Failed to deserialize: {e:?}")))?;
     Ok(value)
 }
 

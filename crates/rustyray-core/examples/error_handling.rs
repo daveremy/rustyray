@@ -40,8 +40,7 @@ async fn main() -> Result<()> {
         task_function!(|x: f64| async move {
             if x < 0.0 {
                 Err(RustyRayError::Internal(format!(
-                    "Cannot take square root of negative number: {}",
-                    x
+                    "Cannot take square root of negative number: {x}"
                 )))
             } else {
                 Ok::<f64, RustyRayError>(x.sqrt())
@@ -58,7 +57,7 @@ async fn main() -> Result<()> {
                     "Insecure protocol not allowed".to_string(),
                 ))
             } else if url.starts_with("https://") {
-                Ok::<String, RustyRayError>(format!("Data from {}", url))
+                Ok::<String, RustyRayError>(format!("Data from {url}"))
             } else {
                 Err(RustyRayError::Internal("Invalid URL format".to_string()))
             }
@@ -73,19 +72,19 @@ async fn main() -> Result<()> {
     let result = TaskBuilder::new("divide")
         .arg(10.0)
         .arg(2.0)
-        .submit::<f64>(&task_system)
+        .submit::<f64>(task_system)
         .await?
         .get()
         .await?;
-    println!("   10.0 / 2.0 = {}", result);
+    println!("   10.0 / 2.0 = {result}");
 
     let result = TaskBuilder::new("sqrt")
         .arg(16.0)
-        .submit::<f64>(&task_system)
+        .submit::<f64>(task_system)
         .await?
         .get()
         .await?;
-    println!("   sqrt(16.0) = {}\n", result);
+    println!("   sqrt(16.0) = {result}\n");
 
     // Example 2: Handling validation errors
     println!("3. Handling validation errors:");
@@ -94,34 +93,34 @@ async fn main() -> Result<()> {
     let div_by_zero = TaskBuilder::new("divide")
         .arg(5.0)
         .arg(0.0)
-        .submit::<f64>(&task_system)
+        .submit::<f64>(task_system)
         .await?;
 
     match div_by_zero.get().await {
         Ok(_) => println!("   ERROR: Division by zero should have failed!"),
-        Err(e) => println!("   ✓ Division by zero caught: {}", e),
+        Err(e) => println!("   ✓ Division by zero caught: {e}"),
     }
 
     // Negative square root
     let negative_sqrt = TaskBuilder::new("sqrt")
         .arg(-4.0)
-        .submit::<f64>(&task_system)
+        .submit::<f64>(task_system)
         .await?;
 
     match negative_sqrt.get().await {
         Ok(_) => println!("   ERROR: Negative sqrt should have failed!"),
-        Err(e) => println!("   ✓ Negative sqrt caught: {}", e),
+        Err(e) => println!("   ✓ Negative sqrt caught: {e}"),
     }
 
     // Invalid URL
     let bad_url = TaskBuilder::new("fetch_data")
         .arg("not-a-url")
-        .submit::<String>(&task_system)
+        .submit::<String>(task_system)
         .await?;
 
     match bad_url.get().await {
         Ok(_) => println!("   ERROR: Invalid URL should have failed!"),
-        Err(e) => println!("   ✓ Invalid URL caught: {}", e),
+        Err(e) => println!("   ✓ Invalid URL caught: {e}"),
     }
 
     // Example 3: Missing function error
@@ -129,12 +128,12 @@ async fn main() -> Result<()> {
 
     let missing_func = TaskBuilder::new("non_existent_function")
         .arg(42)
-        .submit::<i32>(&task_system)
+        .submit::<i32>(task_system)
         .await?;
 
     match missing_func.get().await {
         Ok(_) => println!("   ERROR: Missing function should have failed!"),
-        Err(e) => println!("   ✓ Missing function caught: {}", e),
+        Err(e) => println!("   ✓ Missing function caught: {e}"),
     }
 
     // Example 4: Using Future trait for error handling
@@ -144,22 +143,22 @@ async fn main() -> Result<()> {
         TaskBuilder::new("divide")
             .arg(20.0)
             .arg(4.0)
-            .submit::<f64>(&task_system)
+            .submit::<f64>(task_system)
             .await?,
         TaskBuilder::new("divide")
             .arg(15.0)
             .arg(3.0)
-            .submit::<f64>(&task_system)
+            .submit::<f64>(task_system)
             .await?,
         TaskBuilder::new("divide")
             .arg(10.0)
             .arg(0.0)
-            .submit::<f64>(&task_system)
+            .submit::<f64>(task_system)
             .await?, // This will fail
         TaskBuilder::new("divide")
             .arg(8.0)
             .arg(2.0)
-            .submit::<f64>(&task_system)
+            .submit::<f64>(task_system)
             .await?,
     ];
 
@@ -178,34 +177,34 @@ async fn main() -> Result<()> {
     let primary_url = "http://insecure.com/data";
     let secondary_url = "https://secure.com/data";
 
-    println!("   Trying primary server: {}", primary_url);
+    println!("   Trying primary server: {primary_url}");
     let primary_result = TaskBuilder::new("fetch_data")
         .arg(primary_url.to_string())
-        .submit::<String>(&task_system)
+        .submit::<String>(task_system)
         .await?;
 
     let data = match primary_result.get().await {
         Ok(data) => {
-            println!("   Primary server succeeded: {}", data);
+            println!("   Primary server succeeded: {data}");
             data
         }
         Err(e) => {
-            println!("   Primary server failed: {}", e);
-            println!("   Trying secondary server: {}", secondary_url);
+            println!("   Primary server failed: {e}");
+            println!("   Trying secondary server: {secondary_url}");
 
             let secondary_result = TaskBuilder::new("fetch_data")
                 .arg(secondary_url.to_string())
-                .submit::<String>(&task_system)
+                .submit::<String>(task_system)
                 .await?
                 .get()
                 .await?;
 
-            println!("   Secondary server succeeded: {}", secondary_result);
+            println!("   Secondary server succeeded: {secondary_result}");
             secondary_result
         }
     };
 
-    println!("   Final data: {}", data);
+    println!("   Final data: {data}");
 
     // Shutdown
     println!("\n7. Shutting down...");

@@ -26,6 +26,12 @@ static OBJECT_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct ActorId(u64);
 
+impl Default for ActorId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ActorId {
     /// Generate a new unique actor ID.
     pub fn new() -> Self {
@@ -51,6 +57,12 @@ impl fmt::Display for ActorId {
 /// for tracking execution, dependencies, and results.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct TaskId(u64);
+
+impl Default for TaskId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl TaskId {
     /// Generate a new unique task ID.

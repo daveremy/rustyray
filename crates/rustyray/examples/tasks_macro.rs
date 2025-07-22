@@ -6,12 +6,13 @@
 //! - Task dependencies through ObjectRef arguments
 //! - Clean API with minimal boilerplate
 
+#![allow(dead_code, unused_variables)]
 use rustyray::prelude::*;
 
 /// Remote function for computing squares
 #[rustyray::remote]
 async fn square(x: i32) -> i32 {
-    println!("Computing square of {}", x);
+    println!("Computing square of {x}");
     x * x
 }
 
@@ -86,7 +87,7 @@ async fn main() -> Result<()> {
     println!("1. Direct remote function calls:");
     let result1 = square_remote::remote(7).await?;
     let value1 = result1.get().await?;
-    println!("   square(7) = {}", value1);
+    println!("   square(7) = {value1}");
 
     // Example 2: Chained computation with ObjectRefs
     // NOTE: This example currently fails due to ObjectRef serialization limitations.
@@ -108,12 +109,12 @@ async fn main() -> Result<()> {
     // Process items through the actor
     let actor_result = coordinator.process_items(5).await?;
     let actor_sum = actor_result.get().await?;
-    println!("   Actor computed sum: {}", actor_sum);
+    println!("   Actor computed sum: {actor_sum}");
 
     // Chain computation through actor
     let chain_result = coordinator.chain_computation().await?;
     let chain_value = chain_result.get().await?;
-    println!("   Actor chain result: {}", chain_value);
+    println!("   Actor chain result: {chain_value}");
 
     println!("\n✓ All tasks completed successfully!");
     Ok(())

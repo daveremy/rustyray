@@ -3,17 +3,18 @@
 //! This example shows how the #[remote] macro simplifies
 //! the RustyRay API.
 
+#![allow(dead_code, unused_variables)]
 use rustyray::prelude::*;
 
 #[rustyray::remote]
 async fn add(x: i32, y: i32) -> i32 {
-    println!("Computing {} + {} on a remote task", x, y);
+    println!("Computing {x} + {y} on a remote task");
     x + y
 }
 
 #[rustyray::remote]
 async fn hello(name: String) -> String {
-    format!("Hello, {}!", name)
+    format!("Hello, {name}!")
 }
 
 #[rustyray::remote(num_cpus = 2.0)]
@@ -28,7 +29,7 @@ async fn compute_heavy(n: u64) -> u64 {
 
 #[rustyray::remote]
 fn multiply(x: i32, y: i32) -> i32 {
-    println!("Computing {} * {} on a remote task (sync)", x, y);
+    println!("Computing {x} * {y} on a remote task (sync)");
     x * y
 }
 

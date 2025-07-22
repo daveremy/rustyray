@@ -91,7 +91,7 @@ async fn main() -> Result<()> {
     let response = counter_ref.call(Box::new(CounterMessage::Get)).await?;
     if let Ok(response) = response.downcast::<CounterResponse>() {
         match *response {
-            CounterResponse::Count(count) => println!("Current count via call: {}", count),
+            CounterResponse::Count(count) => println!("Current count via call: {count}"),
         }
     }
 
@@ -112,7 +112,7 @@ async fn main() -> Result<()> {
     let response = counter_ref.call(Box::new(CounterMessage::Get)).await?;
     if let Ok(response) = response.downcast::<CounterResponse>() {
         match *response {
-            CounterResponse::Count(count) => println!("Final count via call: {}", count),
+            CounterResponse::Count(count) => println!("Final count via call: {count}"),
         }
     }
 

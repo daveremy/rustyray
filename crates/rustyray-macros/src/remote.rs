@@ -1,6 +1,8 @@
 //! Implementation of the #[remote] macro
 
-use crate::utils::{extract_result_ok_type, is_object_ref_type, is_potentially_serializable, is_result_type};
+use crate::utils::{
+    extract_result_ok_type, is_object_ref_type, is_potentially_serializable, is_result_type,
+};
 use darling::FromMeta;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
@@ -56,7 +58,7 @@ fn validate_remote_function(func: &ItemFn) -> syn::Result<()> {
     // Check for const
     if func.sig.constness.is_some() {
         return Err(syn::Error::new_spanned(
-            &func.sig.constness,
+            func.sig.constness,
             "#[remote] functions cannot be const",
         ));
     }
@@ -64,7 +66,7 @@ fn validate_remote_function(func: &ItemFn) -> syn::Result<()> {
     // Check for unsafe
     if func.sig.unsafety.is_some() {
         return Err(syn::Error::new_spanned(
-            &func.sig.unsafety,
+            func.sig.unsafety,
             "#[remote] functions cannot be unsafe",
         ));
     }
@@ -96,7 +98,7 @@ fn generate_remote_module(func: &ItemFn, args: &RemoteArgs) -> proc_macro2::Toke
     let fn_vis = &func.vis;
     let is_async = func.sig.asyncness.is_some();
 
-    let mod_name = Ident::new(&format!("{}_remote", fn_name), Span::call_site());
+    let mod_name = Ident::new(&format!("{fn_name}_remote"), Span::call_site());
 
     // Extract parameter names and types
     let params: Vec<_> = fn_inputs
@@ -202,31 +204,38 @@ fn generate_remote_module(func: &ItemFn, args: &RemoteArgs) -> proc_macro2::Toke
     };
 
     // Check if we should generate ObjectRef variant
-    let has_serializable_params = params.iter().any(|param| {
-        !is_object_ref_type(&param.ty) && is_potentially_serializable(&param.ty)
-    });
+    let has_serializable_params = params
+        .iter()
+        .any(|param| !is_object_ref_type(&param.ty) && is_potentially_serializable(&param.ty));
 
     // Generate ObjectRef parameter types and arg calls
     let ref_variant = if has_serializable_params {
         // Create ObjectRef versions of parameters
-        let ref_params: Vec<_> = params.iter().zip(param_names.iter()).map(|(param, name)| {
-            let ty = &param.ty;
-            if is_object_ref_type(ty) {
-                // Already an ObjectRef, keep as is
-                quote! { #name: #ty }
-            } else if is_potentially_serializable(ty) {
-                // Convert to ObjectRef
-                quote! { #name: ObjectRef<#ty> }
-            } else {
-                // Keep as is (non-serializable)
-                quote! { #name: #ty }
-            }
-        }).collect();
+        let ref_params: Vec<_> = params
+            .iter()
+            .zip(param_names.iter())
+            .map(|(param, name)| {
+                let ty = &param.ty;
+                if is_object_ref_type(ty) {
+                    // Already an ObjectRef, keep as is
+                    quote! { #name: #ty }
+                } else if is_potentially_serializable(ty) {
+                    // Convert to ObjectRef
+                    quote! { #name: ObjectRef<#ty> }
+                } else {
+                    // Keep as is (non-serializable)
+                    quote! { #name: #ty }
+                }
+            })
+            .collect();
 
         // All parameters use arg_ref in the ref variant
-        let ref_arg_calls: Vec<_> = param_names.iter().map(|name| {
-            quote! { .arg_ref(&#name) }
-        }).collect();
+        let ref_arg_calls: Vec<_> = param_names
+            .iter()
+            .map(|name| {
+                quote! { .arg_ref(&#name) }
+            })
+            .collect();
 
         quote! {
             /// Execute this function remotely with ObjectRef parameters

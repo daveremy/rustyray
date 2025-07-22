@@ -128,7 +128,11 @@ impl TaskManager {
         object_store: Arc<InMemoryStore>,
     ) -> Result<()> {
         self.sender
-            .send(TaskMessage::Submit { spec, result_tx, object_store })
+            .send(TaskMessage::Submit {
+                spec,
+                result_tx,
+                object_store,
+            })
             .await
             .map_err(|_| RustyRayError::Internal("Task manager shut down".to_string()))
     }
@@ -159,7 +163,7 @@ impl TaskManager {
         if let Some(handle) = handle_guard.take() {
             handle
                 .await
-                .map_err(|e| RustyRayError::Internal(format!("Task manager panic: {:?}", e)))?;
+                .map_err(|e| RustyRayError::Internal(format!("Task manager panic: {e:?}")))?;
         }
 
         Ok(())
@@ -212,14 +216,18 @@ impl TaskManagerWorker {
                 interval.tick().await;
                 let cancelled = tracker.cancel_timed_out_tasks(None).await;
                 if cancelled > 0 {
-                    eprintln!("Cancelled {} timed out tasks", cancelled);
+                    eprintln!("Cancelled {cancelled} timed out tasks");
                 }
             }
         });
 
         while let Some(msg) = rx.recv().await {
             match msg {
-                TaskMessage::Submit { spec, result_tx, object_store } => {
+                TaskMessage::Submit {
+                    spec,
+                    result_tx,
+                    object_store,
+                } => {
                     self.handle_submit(spec, result_tx, object_store).await;
                 }
                 TaskMessage::ObjectReady { id, data } => {
@@ -247,7 +255,12 @@ impl TaskManagerWorker {
         }
     }
 
-    async fn handle_submit(&mut self, spec: TaskSpec, result_tx: oneshot::Sender<Result<Vec<u8>>>, object_store: Arc<InMemoryStore>) {
+    async fn handle_submit(
+        &mut self,
+        spec: TaskSpec,
+        result_tx: oneshot::Sender<Result<Vec<u8>>>,
+        object_store: Arc<InMemoryStore>,
+    ) {
         // Register task with the tracker
         let cancellation_token = self.task_tracker.register_task(spec.task_id).await;
 
@@ -295,7 +308,12 @@ impl TaskManagerWorker {
 
             if task.waiting_for.is_empty() {
                 // All dependencies ready, queue for execution
-                ready_tasks.push((task.spec, task.result_tx, task.cancellation_token, task.object_store));
+                ready_tasks.push((
+                    task.spec,
+                    task.result_tx,
+                    task.cancellation_token,
+                    task.object_store,
+                ));
             } else {
                 // Still waiting for other dependencies
                 still_pending.push(task);
@@ -366,7 +384,7 @@ impl TaskManagerWorker {
 
                 // Create deserialization context
                 let context = DeserializationContext::new(task_object_store.clone());
-                
+
                 // Execute function with the vector of resolved arguments and context
                 match function(resolved_args, context).await {
                     Ok(result) => {
@@ -432,8 +450,7 @@ impl TaskManagerWorker {
                         }
                         None => {
                             return Err(RustyRayError::Internal(format!(
-                                "Object {} not found in store",
-                                id
+                                "Object {id} not found in store"
                             )));
                         }
                     }
@@ -483,7 +500,9 @@ mod tests {
 
         // Submit task
         let (tx, rx) = oneshot::channel();
-        let object_store = Arc::new(InMemoryStore::new(crate::object_store::StoreConfig::default()));
+        let object_store = Arc::new(InMemoryStore::new(
+            crate::object_store::StoreConfig::default(),
+        ));
         manager.queue_task(spec, tx, object_store).await.unwrap();
 
         // Get result

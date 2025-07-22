@@ -33,8 +33,8 @@ linkme = "0.3"
 darling = "0.20"
 
 # Internal dependencies
-rustyray-core = { version = "0.4.0", path = "crates/rustyray-core" }
-rustyray-macros = { version = "0.4.0", path = "crates/rustyray-macros" }
+rustyray-core = { version = "0.5.0", path = "crates/rustyray-core" }
+rustyray-macros = { version = "0.5.0", path = "crates/rustyray-macros" }
 
 # Dev dependencies
 trybuild = "1.0"

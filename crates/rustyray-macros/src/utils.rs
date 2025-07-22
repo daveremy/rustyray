@@ -162,14 +162,14 @@ pub fn is_potentially_serializable(ty: &syn::Type) -> bool {
     match ty {
         // References are not directly serializable
         syn::Type::Reference(_) => false,
-        
+
         // Check path types
         syn::Type::Path(type_path) => {
             // Already an ObjectRef - don't double-wrap
             if is_object_ref_type(ty) {
                 return false;
             }
-            
+
             // Check for common non-serializable types
             if let Some(segment) = type_path.path.segments.last() {
                 let ident_str = segment.ident.to_string();
@@ -179,17 +179,17 @@ pub fn is_potentially_serializable(ty: &syn::Type) -> bool {
                     _ => {}
                 }
             }
-            
+
             // Most other path types are potentially serializable
             true
         }
-        
+
         // Arrays and slices could be serializable
         syn::Type::Array(_) | syn::Type::Slice(_) => true,
-        
+
         // Tuples could be serializable if all elements are
         syn::Type::Tuple(_) => true,
-        
+
         // Other types are likely not serializable
         _ => false,
     }

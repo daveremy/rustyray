@@ -85,10 +85,7 @@ impl TaskTracker {
             handle.cancel();
             Ok(())
         } else {
-            Err(RustyRayError::Internal(format!(
-                "Task {} not found",
-                task_id
-            )))
+            Err(RustyRayError::Internal(format!("Task {task_id} not found")))
         }
     }
 

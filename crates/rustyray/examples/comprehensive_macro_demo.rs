@@ -8,6 +8,7 @@
 //! - ObjectRef chaining
 //! - Async and sync methods
 
+#![allow(dead_code, unused_variables)]
 use rustyray::prelude::*;
 use std::time::Duration;
 
@@ -16,7 +17,7 @@ use std::time::Duration;
 /// Simple async remote function
 #[rustyray::remote]
 async fn compute_fibonacci(n: u32) -> u64 {
-    println!("Computing fibonacci({}) on worker", n);
+    println!("Computing fibonacci({n}) on worker");
     match n {
         0 => 0,
         1 => 1,
@@ -36,10 +37,7 @@ async fn compute_fibonacci(n: u32) -> u64 {
 /// Remote function with resource requirements
 #[rustyray::remote(num_cpus = 2.0, num_gpus = 0.5)]
 async fn train_model(data_size: usize, epochs: u32) -> ModelResult {
-    println!(
-        "Training model with {} data points for {} epochs",
-        data_size, epochs
-    );
+    println!("Training model with {data_size} data points for {epochs} epochs");
     println!("  Using 2 CPUs and 0.5 GPU");
 
     // Simulate training
@@ -225,7 +223,7 @@ async fn main() -> Result<()> {
     println!("1. Simple remote function calls:");
     let fib_future = compute_fibonacci_remote::remote(10).await?;
     let fib_result = fib_future.get().await?;
-    println!("   fibonacci(10) = {}", fib_result);
+    println!("   fibonacci(10) = {fib_result}");
 
     // Example 2: Division with error handling
     println!("\n2. Division with built-in error handling:");
@@ -233,10 +231,10 @@ async fn main() -> Result<()> {
     let div2 = divide_remote::remote(10.0, 0.0).await?;
 
     let div1_result = div1.get().await?;
-    println!("   10.0 / 2.0 = {}", div1_result);
+    println!("   10.0 / 2.0 = {div1_result}");
 
     let div2_result = div2.get().await?;
-    println!("   10.0 / 0.0 = {} (handled internally)", div2_result);
+    println!("   10.0 / 0.0 = {div2_result} (handled internally)");
 
     // Example 3: Actor with multiple constructors
     println!("\n3. Actors with multiple constructors:");
@@ -244,21 +242,18 @@ async fn main() -> Result<()> {
     let pipeline2 = MLPipeline::remote_with_stats("Pipeline2".to_string(), 5, 4).await?;
 
     let (total, successful) = pipeline2.get_stats().await?.get().await?;
-    println!(
-        "   Pipeline2 started with {} total, {} successful",
-        total, successful
-    );
+    println!("   Pipeline2 started with {total} total, {successful} successful");
 
     // Example 4: Complete pipeline execution
     println!("\n4. Running ML pipeline:");
     let data = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     let summary_ref = pipeline1.run_pipeline(data.clone(), 100).await?;
     let summary = summary_ref.get().await?;
-    println!("   Result: {}", summary);
+    println!("   Result: {summary}");
 
     // Example 5: Parallel execution
     println!("\n5. Parallel task execution:");
-    let results = vec![
+    let results = [
         compute_fibonacci_remote::remote(15).await?,
         compute_fibonacci_remote::remote(20).await?,
         compute_fibonacci_remote::remote(25).await?,

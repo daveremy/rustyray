@@ -42,8 +42,10 @@ pub fn is_initialized() -> bool {
 impl Runtime {
     /// Initialize the global runtime
     fn init_internal() -> Result<()> {
-        let mut runtime_guard = RUNTIME.write().unwrap_or_else(|poisoned| poisoned.into_inner());
-        
+        let mut runtime_guard = RUNTIME
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+
         // Check if already initialized
         if runtime_guard.is_some() {
             return Err(RustyRayError::Internal(
@@ -76,7 +78,9 @@ impl Runtime {
 
     /// Get the global runtime
     pub fn global() -> Result<Arc<Runtime>> {
-        let runtime_guard = RUNTIME.read().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let runtime_guard = RUNTIME
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         runtime_guard.as_ref().cloned().ok_or_else(|| {
             RustyRayError::Internal(
                 "Runtime not initialized. Call runtime::init() first or use #[rustyray::main]"
@@ -88,63 +92,71 @@ impl Runtime {
     /// Shutdown the global runtime
     fn shutdown_internal() -> Result<()> {
         // Use unwrap_or_else to handle poisoned locks gracefully
-        let mut runtime_guard = RUNTIME.write().unwrap_or_else(|poisoned| poisoned.into_inner());
-        
+        let mut runtime_guard = RUNTIME
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+
         if runtime_guard.is_none() {
             return Err(RustyRayError::Internal(
                 "Runtime not initialized. Nothing to shutdown".to_string(),
             ));
         }
-        
+
         // Note: We can't easily call async shutdown methods from this synchronous context
         // when already inside a tokio runtime (which happens during tests).
         // The subsystems will be properly cleaned up when dropped due to their
         // internal shutdown states and Drop implementations.
-        // 
+        //
         // The explicit shutdown methods are available for users who want to
         // ensure graceful shutdown with proper async handling.
-        
+
         // Clear the runtime, dropping all resources
         *runtime_guard = None;
-        
+
         Ok(())
     }
-    
+
     /// Shutdown the global runtime with explicit async subsystem shutdown
     async fn shutdown_async_internal() -> Result<()> {
-        // Use unwrap_or_else to handle poisoned locks gracefully
-        let mut runtime_guard = RUNTIME.write().unwrap_or_else(|poisoned| poisoned.into_inner());
-        
-        if runtime_guard.is_none() {
-            return Err(RustyRayError::Internal(
-                "Runtime not initialized. Nothing to shutdown".to_string(),
-            ));
-        }
-        
-        // Get the runtime before clearing the guard
-        let runtime = runtime_guard.take().unwrap();
-        drop(runtime_guard); // Release the lock
-        
+        // Extract runtime from the global state without holding lock across await
+        let runtime = {
+            // Use unwrap_or_else to handle poisoned locks gracefully
+            let mut runtime_guard = RUNTIME
+                .write()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+            if runtime_guard.is_none() {
+                return Err(RustyRayError::Internal(
+                    "Runtime not initialized. Nothing to shutdown".to_string(),
+                ));
+            }
+
+            // Get the runtime before clearing the guard
+            runtime_guard.take().unwrap()
+        }; // Lock is dropped here
+
         // Perform explicit shutdown of subsystems in the correct order
         // First shutdown the task system (which depends on actor system)
         if let Err(e) = runtime.task_system.shutdown().await {
-            eprintln!("Warning: TaskSystem shutdown error: {}", e);
+            eprintln!("Warning: TaskSystem shutdown error: {e}");
         }
-        
+
         // Then shutdown the actor system
         if let Err(e) = runtime.actor_system.shutdown().await {
-            eprintln!("Warning: ActorSystem shutdown error: {}", e);
+            eprintln!("Warning: ActorSystem shutdown error: {e}");
         }
-        
+
         // Object store doesn't have explicit shutdown, will be cleaned up on drop
         drop(runtime);
-        
+
         Ok(())
     }
-    
+
     /// Check if the runtime is initialized
     fn is_initialized() -> bool {
-        let runtime_guard = RUNTIME.read().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let runtime_guard = RUNTIME
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         runtime_guard.is_some()
     }
 

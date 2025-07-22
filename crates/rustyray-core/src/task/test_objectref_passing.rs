@@ -3,10 +3,7 @@
 #[cfg(test)]
 mod tests {
     use crate::{
-        object_ref::ObjectRef,
-        runtime,
-        task::TaskBuilder,
-        task_function,
+        object_ref::ObjectRef, runtime, task::TaskBuilder, task_function,
         test_utils::with_test_runtime,
     };
 
@@ -34,14 +31,15 @@ mod tests {
             // Submit task that uses the ObjectRef
             let result_ref: ObjectRef<i32> = TaskBuilder::new("test_passing_double_from_ref")
                 .arg_ref(&input_ref)
-                .submit(&task_system)
+                .submit(task_system)
                 .await
                 .unwrap();
 
             // Get result
             let result = result_ref.get().await.unwrap();
             assert_eq!(result, 84);
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]
@@ -72,21 +70,22 @@ mod tests {
 
             // Chain operations: 5 -> +10 -> *3 = 45
             let initial = task_system.put(5i32).await.unwrap();
-            
+
             let added = TaskBuilder::new("test_chained_add_ten")
                 .arg_ref(&initial)
-                .submit::<i32>(&task_system)
+                .submit::<i32>(task_system)
                 .await
                 .unwrap();
-                
+
             let multiplied = TaskBuilder::new("test_chained_multiply_three")
                 .arg_ref(&added)
-                .submit::<i32>(&task_system)
+                .submit::<i32>(task_system)
                 .await
                 .unwrap();
 
             let result = multiplied.get().await.unwrap();
             assert_eq!(result, 45);
-        }).await;
+        })
+        .await;
     }
 }

@@ -48,13 +48,13 @@ async fn main() -> Result<()> {
 
     // Call methods
     let val1 = counter.increment().await?.get().await?;
-    println!("After increment: {}", val1);
+    println!("After increment: {val1}");
 
     let val2 = counter.add(10).await?.get().await?;
-    println!("After adding 10: {}", val2);
+    println!("After adding 10: {val2}");
 
     let current = counter.get().await?.get().await?;
-    println!("Current value: {}", current);
+    println!("Current value: {current}");
 
     Ok(())
 }

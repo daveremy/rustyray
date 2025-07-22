@@ -53,7 +53,7 @@ mod tests {
 
             // Produce data once
             let data_ref = TaskBuilder::new("test_sharing_produce_data")
-                .submit::<Vec<i32>>(&task_system)
+                .submit::<Vec<i32>>(task_system)
                 .await
                 .unwrap();
 
@@ -65,19 +65,19 @@ mod tests {
             // Submit three tasks that all use the same data
             let sum_ref = TaskBuilder::new("test_sharing_sum")
                 .arg_ref(&data_ref_for_sum)
-                .submit::<i32>(&task_system)
+                .submit::<i32>(task_system)
                 .await
                 .unwrap();
 
             let max_ref = TaskBuilder::new("test_sharing_max")
                 .arg_ref(&data_ref_for_max)
-                .submit::<i32>(&task_system)
+                .submit::<i32>(task_system)
                 .await
                 .unwrap();
 
             let avg_ref = TaskBuilder::new("test_sharing_average")
                 .arg_ref(&data_ref_for_avg)
-                .submit::<f64>(&task_system)
+                .submit::<f64>(task_system)
                 .await
                 .unwrap();
 
@@ -93,7 +93,8 @@ mod tests {
             // We can also still get the original data
             let data = data_ref.get().await.unwrap();
             assert_eq!(data, vec![1, 2, 3, 4, 5]);
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]
@@ -115,7 +116,7 @@ mod tests {
 
             // Submit the task
             let result_ref = TaskBuilder::new("test_concurrent_slow_compute")
-                .submit::<i32>(&task_system)
+                .submit::<i32>(task_system)
                 .await
                 .unwrap();
 
@@ -134,12 +135,13 @@ mod tests {
             // All should get the same result
             for handle in handles {
                 let (i, result) = handle.await.unwrap();
-                assert_eq!(result, 42, "Clone {} got wrong result", i);
+                assert_eq!(result, 42, "Clone {i} got wrong result");
             }
 
             // Original should also work
             let original_result = result_ref.get().await.unwrap();
             assert_eq!(original_result, 42);
-        }).await;
+        })
+        .await;
     }
 }

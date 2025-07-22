@@ -18,7 +18,7 @@ mod tests {
             task_system.register_function(
                 "test_objectref_args_add3",
                 task_function!(|x: i32, y: i32, z: i32| async move {
-                    println!("   Task: Adding {} + {} + {}", x, y, z);
+                    println!("   Task: Adding {x} + {y} + {z}");
                     Ok::<i32, crate::error::RustyRayError>(x + y + z)
                 }),
             ).unwrap();
@@ -26,7 +26,7 @@ mod tests {
             task_system.register_function(
                 "test_objectref_args_multiply",
                 task_function!(|x: i32, y: i32| async move {
-                    println!("   Task: Multiplying {} * {}", x, y);
+                    println!("   Task: Multiplying {x} * {y}");
                     Ok::<i32, crate::error::RustyRayError>(x * y)
                 }),
             ).unwrap();
@@ -37,11 +37,11 @@ mod tests {
                 .arg(10)
                 .arg(20)
                 .arg(30)
-                .submit(&task_system)
+                .submit(task_system)
                 .await.unwrap();
             let result = result_ref.get().await.unwrap();
             assert_eq!(result, 60);
-            println!("   Result: {} ✓", result);
+            println!("   Result: {result} ✓");
 
             // Test 2: Mix of direct values and ObjectRef
             println!("\nTest 2: Mixed direct and ObjectRef arguments");
@@ -50,7 +50,7 @@ mod tests {
             let multiply_ref: ObjectRef<i32> = TaskBuilder::new("test_objectref_args_multiply")
                 .arg(5)
                 .arg(6)
-                .submit(&task_system)
+                .submit(task_system)
                 .await.unwrap();
 
             // Then add 10 + multiply_result + 20
@@ -58,12 +58,12 @@ mod tests {
                 .arg(10)
                 .arg_ref(&multiply_ref) // This is an ObjectRef dependency!
                 .arg(20)
-                .submit(&task_system)
+                .submit(task_system)
                 .await.unwrap();
 
             let final_result = add_ref.get().await.unwrap();
             assert_eq!(final_result, 60); // 10 + 30 + 20 = 60
-            println!("   Final result: {} ✓", final_result);
+            println!("   Final result: {final_result} ✓");
 
             // Test 3: Multiple ObjectRef dependencies
             println!("\nTest 3: Multiple ObjectRef dependencies");
@@ -78,12 +78,12 @@ mod tests {
                 .arg_ref(&val1)
                 .arg_ref(&val2)
                 .arg_ref(&val3)
-                .submit(&task_system)
+                .submit(task_system)
                 .await.unwrap();
 
             let sum = sum_ref.get().await.unwrap();
             assert_eq!(sum, 600); // 100 + 200 + 300 = 600
-            println!("   Sum of ObjectRefs: {} ✓", sum);
+            println!("   Sum of ObjectRefs: {sum} ✓");
 
             // Test 4: Chain of ObjectRef dependencies
             println!("\nTest 4: Chain of ObjectRef dependencies");
@@ -92,21 +92,21 @@ mod tests {
             let step1 = TaskBuilder::new("test_objectref_args_multiply")
                 .arg(3)
                 .arg(4)
-                .submit::<i32>(&task_system)
+                .submit::<i32>(task_system)
                 .await.unwrap();
 
             // Second: 5 * 6 = 30
             let step2 = TaskBuilder::new("test_objectref_args_multiply")
                 .arg(5)
                 .arg(6)
-                .submit::<i32>(&task_system)
+                .submit::<i32>(task_system)
                 .await.unwrap();
 
             // Third: step1 * 2 = 24
             let step3 = TaskBuilder::new("test_objectref_args_multiply")
                 .arg_ref(&step1)
                 .arg(2)
-                .submit::<i32>(&task_system)
+                .submit::<i32>(task_system)
                 .await.unwrap();
 
             // Final: step3 + step2 + 10 = 24 + 30 + 10 = 64
@@ -114,12 +114,12 @@ mod tests {
                 .arg_ref(&step3)
                 .arg_ref(&step2)
                 .arg(10)
-                .submit::<i32>(&task_system)
+                .submit::<i32>(task_system)
                 .await.unwrap();
 
             let chain_result = final_ref.get().await.unwrap();
             assert_eq!(chain_result, 64);
-            println!("   Chain result: {} ✓", chain_result);
+            println!("   Chain result: {chain_result} ✓");
 
             println!("\nAll tests passed! Multi-argument functions with ObjectRef dependencies work correctly.");
         }).await;

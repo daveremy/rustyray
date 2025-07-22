@@ -24,7 +24,7 @@ mod tests {
                 .register_function(
                     "test_builder_errors_multi_arg",
                     task_function!(|x: i32, y: String| async move {
-                        Ok::<String, crate::error::RustyRayError>(format!("{}: {}", x, y))
+                        Ok::<String, crate::error::RustyRayError>(format!("{x}: {y}"))
                     }),
                 )
                 .unwrap();
@@ -33,13 +33,14 @@ mod tests {
             let result = TaskBuilder::new("test_builder_errors_multi_arg")
                 .arg(42)
                 .arg("test".to_string())
-                .submit::<String>(&task_system)
+                .submit::<String>(task_system)
                 .await;
 
             assert!(result.is_ok());
             let value = result.unwrap().get().await.unwrap();
             assert_eq!(value, "42: test");
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]
@@ -51,7 +52,7 @@ mod tests {
             // Submit a task for a non-existent function
             let result_ref = TaskBuilder::new("non_existent")
                 .arg(42)
-                .submit::<i32>(&task_system)
+                .submit::<i32>(task_system)
                 .await;
 
             // Submission succeeds (returns ObjectRef)
@@ -62,7 +63,8 @@ mod tests {
             assert!(get_result.is_err());
             let error_msg = get_result.unwrap_err().to_string();
             assert!(error_msg.contains("not found"));
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]

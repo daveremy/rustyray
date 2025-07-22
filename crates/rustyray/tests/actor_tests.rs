@@ -1,7 +1,6 @@
 //! Integration tests for actor macros
 #![cfg(test)]
 
-use rustyray::prelude::*;
 use rustyray_core::test_utils::with_test_runtime;
 
 #[rustyray::actor]

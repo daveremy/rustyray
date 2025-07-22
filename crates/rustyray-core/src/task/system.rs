@@ -58,7 +58,7 @@ pub struct TaskSystem {
 
     /// Shutdown state
     shutdown_state: Arc<AtomicU8>,
-    
+
     /// Tracks spawned tasks for result storage
     result_storage_tasks: Arc<Mutex<Vec<JoinHandle<()>>>>,
 }
@@ -156,7 +156,9 @@ impl TaskSystem {
         spec.task_id = crate::types::TaskId::from(object_id);
 
         // Queue task for execution
-        self.task_manager.queue_task(spec, result_tx, self.object_store.clone()).await?;
+        self.task_manager
+            .queue_task(spec, result_tx, self.object_store.clone())
+            .await?;
 
         // Create ObjectRef backed by store
         let object_ref = ObjectRef::with_store(object_id, self.object_store.clone());
@@ -190,7 +192,7 @@ impl TaskSystem {
                 let _ = store.put_with_id(object_id, wrapped_result).await;
             }
         });
-        
+
         // Track the spawned task
         {
             let mut tasks = task_tracker.lock().await;
@@ -228,7 +230,7 @@ impl TaskSystem {
     {
         // Serialize the value for backward compatibility with task manager
         let bytes = crate::task::serde_utils::serialize(&value)
-            .map_err(|e| RustyRayError::Internal(format!("Failed to serialize object: {}", e)))?;
+            .map_err(|e| RustyRayError::Internal(format!("Failed to serialize object: {e}")))?;
 
         // Store in object store
         let result = self.object_store.put(value).await?;
@@ -250,7 +252,10 @@ impl TaskSystem {
     /// Functions must be registered before they can be called as tasks.
     pub fn register_function<F>(&self, id: impl Into<FunctionId>, function: F) -> Result<()>
     where
-        F: Fn(Vec<Vec<u8>>, crate::task::context::DeserializationContext) -> crate::task::BoxFuture<'static, Result<Vec<u8>>>
+        F: Fn(
+                Vec<Vec<u8>>,
+                crate::task::context::DeserializationContext,
+            ) -> crate::task::BoxFuture<'static, Result<Vec<u8>>>
             + Send
             + Sync
             + 'static,
@@ -267,19 +272,19 @@ impl TaskSystem {
     pub fn is_shutdown(&self) -> bool {
         ShutdownState::from(self.shutdown_state.load(Ordering::Acquire)) == ShutdownState::Shutdown
     }
-    
+
     /// Wait for all spawned result storage tasks to complete
     pub async fn wait_for_tasks(&self) -> Result<()> {
         let tasks = {
             let mut tasks_guard = self.result_storage_tasks.lock().await;
             std::mem::take(&mut *tasks_guard)
         };
-        
+
         for task in tasks {
             // Ignore errors from individual tasks
             let _ = task.await;
         }
-        
+
         Ok(())
     }
 
@@ -305,13 +310,13 @@ impl TaskSystem {
                 // We successfully initiated shutdown
                 // Shutdown task manager
                 self.task_manager.shutdown().await?;
-                
+
                 // Wait for all result storage tasks to complete
                 let tasks = {
                     let mut tasks_guard = self.result_storage_tasks.lock().await;
                     std::mem::take(&mut *tasks_guard)
                 };
-                
+
                 for task in tasks {
                     // Ignore errors from task completion
                     let _ = task.await;
@@ -430,9 +435,7 @@ mod tests {
             task_system
                 .register_function(
                     "test_basic_double",
-                    crate::task_function!(|x: i32| async move {
-                        Ok::<i32, RustyRayError>(x * 2)
-                    }),
+                    crate::task_function!(|x: i32| async move { Ok::<i32, RustyRayError>(x * 2) }),
                 )
                 .unwrap();
 
@@ -446,7 +449,8 @@ mod tests {
             // Get result
             let result = result_ref.get().await.unwrap();
             assert_eq!(result, 42);
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]
@@ -471,14 +475,15 @@ mod tests {
                 .arg(10)
                 .arg(15)
                 .num_cpus(1.0)
-                .submit(&task_system)
+                .submit(task_system)
                 .await
                 .unwrap();
 
             // Get result
             let result = result_ref.get().await.unwrap();
             assert_eq!(result, 25);
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]
@@ -492,9 +497,9 @@ mod tests {
             task_system
                 .register_function(
                     "test_dependency_use_ref",
-                    crate::task_function!(|x: i32| async move {
-                        Ok::<i32, RustyRayError>(x + 100)
-                    }),
+                    crate::task_function!(
+                        |x: i32| async move { Ok::<i32, RustyRayError>(x + 100) }
+                    ),
                 )
                 .unwrap();
 
@@ -504,13 +509,14 @@ mod tests {
             // Submit task that uses the object
             let result_ref: ObjectRef<i32> = TaskBuilder::new("test_dependency_use_ref")
                 .arg_ref(&obj_ref)
-                .submit(&task_system)
+                .submit(task_system)
                 .await
                 .unwrap();
 
             // Get result
             let result = result_ref.get().await.unwrap();
             assert_eq!(result, 142);
-        }).await;
+        })
+        .await;
     }
 }
